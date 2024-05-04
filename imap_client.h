@@ -7,7 +7,7 @@ typedef struct fetch_mail {
         char *password; 
         char *folder;
         int messageNum;
-        int tag;
+        int isTSL;
         char *command;
         char *server_name;
 } fetch_mail_t;

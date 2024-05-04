@@ -8,6 +8,6 @@
 // Handle IMAP protocol specifics like tag generation and response parsing.
 
 int create_connection() {
-    printf("The connection function\n");
+    printf("The connection function\n\n\n\n\n");
     return 1; 
 }
