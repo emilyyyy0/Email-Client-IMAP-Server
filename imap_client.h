@@ -12,7 +12,9 @@ typedef struct fetch_mail {
         char *server_name;
 } fetch_mail_t;
 
-// Function to read in command line arguments
-void parse_args(int argc, char *argv[], fetch_mail_t *fetch_mail);
+// // Function to read in command line arguments
+// void parse_args(int argc, char *argv[], fetch_mail_t *fetch_mail);
+
+int create_connection();
 
 #endif

@@ -1,7 +1,7 @@
 EXE=fetchmail
 
-$(EXE): main.c
-	cc -Wall -o $(EXE) $<
+$(EXE): main.c imap_client.c utils.c
+	cc -Wall -o $(EXE) $^
 
 # Rust
 # $(EXE): src/*.rs vendor
