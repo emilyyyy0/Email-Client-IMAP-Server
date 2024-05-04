@@ -13,5 +13,11 @@ $(EXE): main.c
 # 		cargo vendor --locked; \
 # 	fi
 
+run: 
+	./fetchmail -f Test -p pass -u test@comp30023 -n 1 retrieve unimelb-comp30023-2024.cloud.edu.au
+
 format:
 	clang-format -style=file -i *.c
+
+clean: 
+	rm -f fetchmail
