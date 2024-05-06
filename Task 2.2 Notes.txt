@@ -1,0 +1,40 @@
+Write email client to connect to IMAP server, and log in using provided credentials. 
+And then select a mailbox folder. 
+
+Basic steps to retrieving an email: 
+- Create an IPv6 socket (or fall back to IPv4 if IPv6 is not supported) on port 
+143 (or a TLS socket on port 993 if doing the extension task and (-t) was 
+specified.) to the host named on the command line. 
+
+- Log in to the IMAP server using: 
+    tag LOGIN username password 
+
+where username and password are as specified on the command line
+
+Each command is prefixed with an identifier, or tag (such as AO1). 
+The tags should all be different within one session. 
+These are used for the server to report errors or completion of commands. 
+
+Each line ends with the standard internen end-of-line sequence \r\n (not the C end-of-line).
+
+If this succeeds, you will receive a string starting with the tag, followed by a single space, 
+(a case-insensitive) OK, and another single space. 
+
+If it fails,you should print the string Login failure\n to stdout
+and exit with status 3.
+
+You may assume that the LOGINDISABLED capability will not be advertised, and do not need to support
+RFC5738: IMAP Support for UTF-8.
+
+
+
+
+- Tell the system which folder you want to read from: 
+    tag SELECT folder
+
+If this succeeds, you will receive some untagged response lines starting with “*”, 
+followed by a string starting with the tag followed by OK .
+If the folder doesn’t exist, print the string Folder not found\n to
+stdout and exit with status3. 
+You should read from the folder INBOX if no folder is specified on the command line.
+The next steps depend on which command is being executed.
