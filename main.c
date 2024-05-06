@@ -12,6 +12,7 @@ int main(int argc, char *argv[]) {
     parse_args(argc, argv, &fetch_mail);
 
     // Print stored command arguments
+    printf("\n\nNEW\n\n");
     printf("Username: %s\n", fetch_mail.username);
     printf("Password: %s\n", fetch_mail.password);
     printf("Folder: %s\n", fetch_mail.folder ? fetch_mail.folder : "not specified");
@@ -31,7 +32,7 @@ int main(int argc, char *argv[]) {
         sockfd = create_connection(fetch_mail.server_name, "143");  // we connect the socket in this
     }
 
-    printf("%d checking connection\n\n\n", sockfd);
+    printf("sockfd = %d \n", sockfd);
 
     // Now we must implement logging on 
     // log in using: tag LOGIN <username> <password> \r\n

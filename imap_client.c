@@ -63,13 +63,14 @@ int create_connection(const char *hostname, const char *port) {
     freeaddrinfo(res0); 
     return sockfd; 
 
-    printf("The connection function\n\n\n\n\n");
 }
 
 // send_command function 
 // sends a string (command) to the server over the socket connection (represented by sockfd)
 void send_command(int sockfd, const char *cmd) {
     int len = strlen(cmd);
+
+    printf("command being sent to server: %s", cmd);
 
     // write system call transmits the command string to the server
     // sockfd: Specifies the file descriptor of the socket, which identifies the connection to the server.
