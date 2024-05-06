@@ -7,6 +7,9 @@
 #include <string.h>
 #include <netdb.h>
 
+#define BUFFER_SIZE 1024
+
+
 // Struct to store the command line arguments
 typedef struct fetch_mail {
         char *username; 
@@ -22,5 +25,11 @@ typedef struct fetch_mail {
 // void parse_args(int argc, char *argv[], fetch_mail_t *fetch_mail);
 
 int create_connection(const char *hostname, const char *port);
+
+void send_command(int sockfd, const char *cmd);
+
+void error(const char *msg, int num);
+
+void read_response(int sockfd, const char* tag); 
 
 #endif
