@@ -20,7 +20,8 @@ int main(int argc, char *argv[]) {
     printf("Command: %s\n", fetch_mail.command);
     printf("Server Name: %s\n", fetch_mail.server_name);
 
-    int check = create_connection(); 
+    int check = create_connection(fetch_mail.server_name, "143"); 
+    printf("%d checking connection\n", check);
 
     return 0;
 }

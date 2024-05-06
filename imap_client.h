@@ -21,6 +21,6 @@ typedef struct fetch_mail {
 // // Function to read in command line arguments
 // void parse_args(int argc, char *argv[], fetch_mail_t *fetch_mail);
 
-int create_connection();
+int create_connection(const char *hostname, const char *port);
 
 #endif
