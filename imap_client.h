@@ -32,4 +32,6 @@ void error(const char *msg, int num);
 
 void read_response(int sockfd, const char* tag); 
 
+void login(int sockfd, const char* username, const char* password);
+
 #endif

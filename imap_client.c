@@ -69,6 +69,9 @@ int create_connection(const char *hostname, const char *port) {
 // sends a string (command) to the server over the socket connection (represented by sockfd)
 void send_command(int sockfd, const char *cmd) {
     int len = strlen(cmd);
+    int total_sent = 0;  // Total bytes sent so far
+    int bytes_left = len;  // Bytes left to send
+    int n;
 
     printf("command being sent to server: %s", cmd);
 
@@ -76,10 +79,23 @@ void send_command(int sockfd, const char *cmd) {
     // sockfd: Specifies the file descriptor of the socket, which identifies the connection to the server.
     // cmd: the command string to be sent
     // len: tell write() the exact number of bytes to send from the buffer
-    if (write(sockfd, cmd, len) != len) {
-        // this ensures  that all bytes of the command string were successfully written to the socket
-        error("socket is not writable", 1); // partial write or a write failure
+    // if (write(sockfd, cmd, len) != len) {
+    //     // this ensures  that all bytes of the command string were successfully written to the socket
+    //     error("socket is not writable", 1); // partial write or a write failure
+    // }
+
+     // Continuously attempt to write until all bytes are sent
+    while (total_sent < len) {
+        n = write(sockfd, cmd + total_sent, bytes_left);
+        if (n == -1) {
+            // Handle the error, print it and exit
+            error("Socket is not writable", 1);
+        }
+        total_sent += n;
+        bytes_left -= n;
     }
+
+
 }
 
 
@@ -96,23 +112,26 @@ void read_response(int sockfd, const char* tag) {
     buffer[numBytes] = '\0'; // null terminator to make it a string
 
     // Output the server's response for debugging or information purposes
-    printf("Server Response: %s\n", buffer);
-
-    // Now we check if response was successful 
-    // char expected_ok[100];
-    // snprintf(expected_ok, sizeof(expected_ok), "%s OK", tag);
-
-    // if (strstr(buffer, expected_ok) != NULL) {
-    //     printf("Command successful: %s\n", buffer);
-    // } else {
-    //     printf("Login failure\n");
-    //     exit(3);
-    // }
-
-
-    //printf("%s", buffer); // prints receive response to stdout
+    printf("Server Response: %s\n\n", buffer);
+    // initial server greeting we have confirmed the server is ready to accept commands. 
 
 }
+
+
+
+void login(int sockfd, const char* username, const char* password) {
+    char command[BUFFER_SIZE]; // Buffer to hold the complete command string
+
+    // Format the login command according to the IMAP protocol
+    snprintf(command, sizeof(command), "A01 LOGIN %s %s\r\n", username, password); 
+
+    // send the login command to the server
+    send_command(sockfd, command); 
+
+    // Read the response to the login command
+    read_response(sockfd, "A01"); // pass tag used in the login command
+}
+
 
 
 // const char *hostname, const char *port
