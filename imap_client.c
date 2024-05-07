@@ -154,7 +154,21 @@ void select_folder(int sockfd, const char *folder_name) {
     }
 
     // Construct SELECT command
-    snprintf(command, BUFFER_SIZE, "A02 SELECT %s\r\n", folder_name);
+    // snprintf(command, BUFFER_SIZE, "A02 SELECT %s\r\n", folder_name);
+
+    // Escape double quotes and backslashes in folder_name
+    char escaped_name[2*BUFFER_SIZE]; // Allow for potential doubling in size
+    int i, j = 0;
+    for (i = 0; folder_name[i] != '\0'; i++) {
+        if (folder_name[i] == '"' || folder_name[i] == '\\') {
+            escaped_name[j++] = '\\';
+        }
+        escaped_name[j++] = folder_name[i];
+    }
+    escaped_name[j] = '\0'; // Null-terminate the escaped string
+
+    // Construct SELECT command with quoted and escaped folder name
+    snprintf(command, BUFFER_SIZE, "A02 SELECT \"%s\"\r\n", escaped_name);
 
     // send the command to server
     send_command(sockfd, command); 
