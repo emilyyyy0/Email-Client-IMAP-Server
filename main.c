@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     printf("\n\n---------------------------NEW------------------------\n\n");
     printf("Username: %s\n", fetch_mail.username);
     printf("Password: %s\n", fetch_mail.password);
-    printf("Folder: %s\n", fetch_mail.folder ? fetch_mail.folder : "not specified");
+    printf("Folder: %s\n", fetch_mail.folder); //? fetch_mail.folder : "not specified");
     printf("MessageNum: %d\n", fetch_mail.messageNum);
     printf("isTSL: %d\n", fetch_mail.isTSL);
     printf("Command: %s\n", fetch_mail.command);

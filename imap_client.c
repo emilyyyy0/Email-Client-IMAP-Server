@@ -147,7 +147,11 @@ void login(int sockfd, const char* username, const char* password) {
 
 void select_folder(int sockfd, const char *folder_name) {
     char command[BUFFER_SIZE];
-    //char buffer[BUFFER_SIZE];
+
+    // Use "INBOX" if folder_name is NULL or empty
+    if (folder_name == NULL || strlen(folder_name) == 0) {
+        folder_name = "INBOX";
+    }
 
     // Construct SELECT command
     snprintf(command, BUFFER_SIZE, "A02 SELECT %s\r\n", folder_name);
