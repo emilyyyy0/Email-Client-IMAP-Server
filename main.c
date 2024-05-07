@@ -41,19 +41,18 @@ int main(int argc, char *argv[]) {
     // we will use the tag A01
 
     // IMAP login 
-    char command[BUFFER_SIZE];
-    char tag[10];
-    snprintf(tag, sizeof(tag), "A01");
+    // char command[BUFFER_SIZE];
+    // char tag[10];
+    // snprintf(tag, sizeof(tag), "");
     // this line constructs the IMAP login command using snprintf
     // A01 : tag
     // LOGIN: IMAP command keyword, indicates login operation
-    snprintf(command, BUFFER_SIZE, "%s LOGIN %s %s\r\n", tag, fetch_mail.username, fetch_mail.password );
     
     // Command string is sent to IMAP server over the socket connection
-    send_command(sockfd, command); 
+    //send_command(sockfd, ""); 
 
-    // Read the server's response to the login command from the socket.
-    read_response(sockfd, tag);
+    // Read the server's response to the initial greeting to server. 
+    read_response(sockfd, ""); // read and discard initial server greeting message
 
     // Perform login 
     login(sockfd, fetch_mail.username, fetch_mail.password);

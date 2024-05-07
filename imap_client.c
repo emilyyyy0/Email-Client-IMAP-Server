@@ -71,7 +71,7 @@ void send_command(int sockfd, const char *cmd) {
     int len = strlen(cmd);
     int total_sent = 0;  // Total bytes sent so far
     int bytes_left = len;  // Bytes left to send
-    int n;
+    int bytes_sent;
 
     printf("command being sent to server: %s", cmd);
 
@@ -85,14 +85,15 @@ void send_command(int sockfd, const char *cmd) {
     // }
 
      // Continuously attempt to write until all bytes are sent
-    while (total_sent < len) {
-        n = write(sockfd, cmd + total_sent, bytes_left);
-        if (n == -1) {
-            // Handle the error, print it and exit
-            error("Socket is not writable", 1);
+    while (bytes_left > 0) {
+        bytes_sent = write(sockfd, cmd + total_sent, bytes_left);
+        if (bytes_sent < 0) {
+            // Error handling
+            perror("Failed to write to socket");
+            exit(1); // Exit or handle error appropriately
         }
-        total_sent += n;
-        bytes_left -= n;
+        total_sent += bytes_sent;  // Update total bytes sent
+        bytes_left -= bytes_sent;  // Decrease the byte count remaining
     }
 
 
