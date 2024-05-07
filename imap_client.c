@@ -112,9 +112,14 @@ void read_response(int sockfd, const char* tag) {
 
     buffer[numBytes] = '\0'; // null terminator to make it a string
 
+    // Check for specific login failure response
+    if (strstr(buffer, "A01 NO [AUTHENTICATIONFAILED]")) { 
+        printf("Login failure\n");
+        exit(3);  // Exit with status code 3
+    }
+
     // Output the server's response for debugging or information purposes
     printf("Server Response: %s\n\n", buffer);
-    // initial server greeting we have confirmed the server is ready to accept commands. 
 
 }
 
