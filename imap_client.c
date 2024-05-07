@@ -118,6 +118,12 @@ void read_response(int sockfd, const char* tag) {
         exit(3);  // Exit with status code 3
     }
 
+    // Check if folder not found 
+    if (strstr(buffer, "A02 NO")) {
+        printf("Folder not found\n");
+        exit(3);
+    }
+
     // Output the server's response for debugging or information purposes
     printf("Server Response: %s\n\n", buffer);
 
@@ -136,6 +142,21 @@ void login(int sockfd, const char* username, const char* password) {
 
     // Read the response to the login command
     read_response(sockfd, "A01"); // pass tag used in the login command
+}
+
+
+void select_folder(int sockfd, const char *folder_name) {
+    char command[BUFFER_SIZE];
+    //char buffer[BUFFER_SIZE];
+
+    // Construct SELECT command
+    snprintf(command, BUFFER_SIZE, "A02 SELECT %s\r\n", folder_name);
+
+    // send the command to server
+    send_command(sockfd, command); 
+
+    // read the response
+    read_response(sockfd, "A02");
 }
 
 

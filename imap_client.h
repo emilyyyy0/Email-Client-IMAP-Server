@@ -34,4 +34,6 @@ void read_response(int sockfd, const char* tag);
 
 void login(int sockfd, const char* username, const char* password);
 
+void select_folder(int sockfd, const char *folder_name);
+
 #endif

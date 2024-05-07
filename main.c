@@ -12,14 +12,14 @@ int main(int argc, char *argv[]) {
     parse_args(argc, argv, &fetch_mail);
 
     // Print stored command arguments
-    printf("\n\nNEW\n\n");
+    printf("\n\n---------------------------NEW------------------------\n\n");
     printf("Username: %s\n", fetch_mail.username);
     printf("Password: %s\n", fetch_mail.password);
     printf("Folder: %s\n", fetch_mail.folder ? fetch_mail.folder : "not specified");
     printf("MessageNum: %d\n", fetch_mail.messageNum);
     printf("isTSL: %d\n", fetch_mail.isTSL);
     printf("Command: %s\n", fetch_mail.command);
-    printf("Server Name: %s\n", fetch_mail.server_name);
+    printf("Server Name: %s\n\n", fetch_mail.server_name);
 
     int sockfd = 0; 
 
@@ -52,10 +52,18 @@ int main(int argc, char *argv[]) {
     //send_command(sockfd, ""); 
 
     // Read the server's response to the initial greeting to server. 
+    printf("INITIAL SERVER GREETING: \n");
     read_response(sockfd, ""); // read and discard initial server greeting message
 
     // Perform login 
+    printf("\nLOGGING IN\n");
     login(sockfd, fetch_mail.username, fetch_mail.password);
+
+    // Select folder
+    printf("\nSELECTING FOLDER\n");
+    select_folder(sockfd, fetch_mail.folder);
+
+
     
 
 
