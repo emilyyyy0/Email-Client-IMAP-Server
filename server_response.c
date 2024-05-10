@@ -134,36 +134,49 @@ void print_list_retrieve(list_t *list) {
     // int leng = strlen(fetch);
     // printf(" the extracted one:%s \n", fetch);
 
-    int firstLine = 0; 
+    int firstLine = 0; // flag for the first line which has FETCH
 
-    // int i = 0; 
-    // while(!firstLine) {
-    //     if ((current->packet)[i] == '\n') {
-    //         firstLine = 1; 
-    //     }
+    int bytes_printed = 0; 
 
-    //     i++; 
-    // }
-    // // printf("%d\n", i);
-    // printf("%s\n", (current->packet) + i);
-   
-    
 
+    // iterate through the packets linked list 
     while (current != NULL) { 
-        //printf("%s\n", current->packet);
         int i = 0;
 
         char *str = current->packet; 
 
+        // while loop that finds the first '\n' 
         while(!firstLine) {
             if (str[i] == '\n') {
                 firstLine = 1; 
+                printf("%s", str + i + 1);
             }
 
             i++; 
         }
-        // printf("%d\n", i);
-        printf("%s", str + i);
+
+        if (strstr(current->packet, "A03 OK")) {
+            printf("LAST PACKET\n");
+
+            int length = strlen(str); // get length of string
+            int newLineCount = 0; 
+
+            for (int i = length - 1; i >= 0; i--) {
+                if (str[i] == '\n') {
+                    newLineCount++;
+                    if (newLineCount == 2) {
+                        // printf("%s", str + i + 1);
+                        printUpToIndex(str, i - 3);
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+
+        if (firstLine) { // means we have printed skipped the firstline already 
+            printf("%s", str);
+        }
 
         current = current->next; 
     }
@@ -178,4 +191,17 @@ void extractSubstringUntilNewline(const char *input, char *substring) {
         i++;
     }
     substring[i] = '\0';  // Null-terminate the substring
+}
+
+
+void printUpToIndex(char *string, int index) {
+    if (index < 0 || index >= strlen(string)) {
+        printf("Invalid index\n");
+        return;
+    }
+
+    char temp = string[index]; // Save the character at the index
+    string[index] = '\0';      // Null-terminate the string at the index
+    printf("%s\n", string);    // Print the string
+    string[index] = temp;      // Restore the original character
 }

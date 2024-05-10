@@ -48,6 +48,9 @@ void print_list_retrieve(list_t *list);
 
 void extractSubstringUntilNewline(const char *input, char *substring);
 
+void printUpToIndex(char *string, int index);
+
+
 
 
 
