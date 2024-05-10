@@ -128,12 +128,6 @@ int len_list(list_t *list) {
 void print_list_retrieve(list_t *list) {
     node_t *current = list->head; // Start from the head of the list
 
-    
-    // char fetch[100]; // buffer for the FETCH line
-    // extractSubstringUntilNewline(current->packet, fetch); 
-    // int leng = strlen(fetch);
-    // printf(" the extracted one:%s \n", fetch);
-
     int firstLine = 0; // flag for the first line which has FETCH
 
     int bytes_printed = 0; 
@@ -148,16 +142,17 @@ void print_list_retrieve(list_t *list) {
         // while loop that finds the first '\n' 
         while(!firstLine) {
             if (str[i] == '\n') {
-                firstLine = 1; 
-                printf("%s", str + i + 1);
+                // firstLine = 1; 
+                // printf("%s", str + i + 1);
+                break;
             }
 
             i++; 
         }
 
-        if (strstr(current->packet, "A03 OK")) {
-            printf("LAST PACKET\n");
 
+        // For the last packet 
+        if (strstr(current->packet, "A03 OK")) {
             int length = strlen(str); // get length of string
             int newLineCount = 0; 
 
@@ -176,21 +171,13 @@ void print_list_retrieve(list_t *list) {
 
         if (firstLine) { // means we have printed skipped the firstline already 
             printf("%s", str);
+        } else if (!firstLine) {
+            printf("%s", str + i + 1);
+            firstLine = 1;
         }
 
         current = current->next; 
     }
-}
-
-
-void extractSubstringUntilNewline(const char *input, char *substring) {
-    int i = 0;
-    // Iterate through each character in the input string
-    while (input[i] != '\0' && input[i] != '\n') {
-        substring[i] = input[i];  // Copy character to substring
-        i++;
-    }
-    substring[i] = '\0';  // Null-terminate the substring
 }
 
 
