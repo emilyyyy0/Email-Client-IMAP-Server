@@ -7,7 +7,7 @@
 #include <string.h>
 #include <netdb.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 2048
 
 
 // Struct to store the command line arguments
@@ -35,5 +35,8 @@ void read_response(int sockfd, const char* tag);
 void login(int sockfd, const char* username, const char* password);
 
 void select_folder(int sockfd, const char *folder_name);
+
+void retrieve(int sockfd, int message_num);
+
 
 #endif

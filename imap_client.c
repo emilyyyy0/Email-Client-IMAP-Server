@@ -5,6 +5,8 @@
 
 #include "imap_client.h"
 
+#include "server_response.h"
+
 // Implement functions to connect to the imap server using sockets
 // Functions to log in, select folder, fetch messages, and other IMAP commands.
 // Handle IMAP protocol specifics like tag generation and response parsing.
@@ -102,6 +104,7 @@ void send_command(int sockfd, const char *cmd) {
 
 // now we have to read the response from the server
 void read_response(int sockfd, const char* tag) {
+    // could change to the respnse instead 
     char buffer[BUFFER_SIZE]; // character array to store received data
     memset(buffer, 0, BUFFER_SIZE); // initialises buffer with zeros to ensure no residual data from previous
     int numBytes = read(sockfd, buffer, BUFFER_SIZE - 1); // Attempts to read data from the socket with file descriptor sockfd into the buffer. It reads a maximum of BUFFER_SIZE - 1 bytes to leave room for the null terminator (\0) that will be added later.
@@ -125,7 +128,7 @@ void read_response(int sockfd, const char* tag) {
     }
 
     // Output the server's response for debugging or information purposes
-    printf("Server Response: %s\n\n", buffer);
+    //printf("Server Response: %s\n\n", buffer);
 
 }
 
@@ -176,6 +179,91 @@ void select_folder(int sockfd, const char *folder_name) {
     // read the response
     read_response(sockfd, "A02");
 }
+
+
+
+
+void retrieve(int sockfd, int message_num) {
+    // The command is retrieve, we need to fetch the email:
+    // tag FETCH messageNum BODY.PEEK[]
+
+    // if messageNum = -1, it means the message sequence number was not specified on the command line 
+    // fetch the last added message in the folder 
+
+    char command[BUFFER_SIZE];
+
+    if (message_num == -1) {
+        // Fetch the last message (assuming UIDNEXT is available form SELECT)
+        snprintf(command, BUFFER_SIZE, "A03 FETCH * BODY.PEEK[]\r\n");
+    } else {
+        // Fetch a specific message with messageNum
+        snprintf(command, BUFFER_SIZE, "A03 FETCH %d BODY.PEEK[]\r\n", message_num);
+    }
+
+    // Now we sent the FETCH command
+    send_command(sockfd, command); 
+
+
+    // Read the response and store packets in a linked list 
+    list_t *packet_list = make_empty_list(); // create an empty list 
+    char buffer[BUFFER_SIZE];
+
+    while (1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        int numBytes = read(sockfd, buffer, BUFFER_SIZE -1); 
+        if (numBytes < 0) {
+            error("ERROR reading from socket", 1);
+        }
+        buffer[numBytes] = '\0';
+
+        // Check for continuation ("+") response 
+        if (buffer[0] == '+') {
+            // More data is coming, store what we have so far
+            insert_at_foot(packet_list, buffer + 1); // Skip the "+"
+            continue;  // Read the next packet
+        }
+
+        // Check for tagged response
+        if (strstr(buffer, "A03 OK")) {
+            // Success, store the last packet (if any)
+            if (buffer[0] != '\0') {  // Check if there's actual data
+                insert_at_foot(packet_list, buffer);
+            }
+            break;  // Exit the loop
+        }
+
+        // Check for message not found error
+        if (strstr(buffer, "A03 NO")) {
+            printf("Message not found\n");
+            free_list(packet_list); // Free the list before exiting
+            exit(3);  // Exit with status 3
+        }
+
+        if (strstr(buffer, "A03 BAD")) {
+            printf("Message not found\n");
+            free_list(packet_list); // Free the list before exiting
+            exit(3);  // Exit with status 3
+        }
+
+        // Prints out every packet
+        // will contain the raw content of the email message fetched, including headers, body and MIME structure 
+        printf("\n\n\n\nEvery packet:\n");
+        printf("%s", buffer);
+        insert_at_foot(packet_list, buffer); 
+        
+
+    }
+
+    printf("\n \n\n-----------------PRINTING THE LIST -----------\n");
+    print_list(packet_list); // Or iterate through the list using head and next pointers
+
+    // Free the linked list
+    free_list(packet_list);
+    
+
+
+}
+
 
 
 

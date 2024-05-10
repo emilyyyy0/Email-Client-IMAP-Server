@@ -64,7 +64,13 @@ int main(int argc, char *argv[]) {
     select_folder(sockfd, fetch_mail.folder);
 
 
-    
+
+    // If conditions to run the appropriate command given
+    if (strcmp(fetch_mail.command, "retrieve") == 0){
+        // To retrieve and print email
+        printf("\n-----------------RETRIEVING MESSAGE--------------------\n");
+        retrieve(sockfd, fetch_mail.messageNum);
+    }
 
 
     return 0;

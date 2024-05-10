@@ -1,6 +1,6 @@
 EXE=fetchmail
 
-$(EXE): main.c imap_client.c utils.c
+$(EXE): main.c imap_client.c utils.c server_response.c
 	cc -Wall -o $(EXE) $^
 
 # Rust
@@ -27,6 +27,12 @@ nofolderspecified:
 
 withspace: 
 	./fetchmail -f 'With Space' -n 1 -u test@comp30023 -p pass retrieve unimelb-comp30023-2024.cloud.edu.au
+
+noMessageNum:
+	./fetchmail -p pass -u test@comp30023 -f Test retrieve unimelb-comp30023-2024.cloud.edu.au
+
+rawEmail: 
+	./fetchmail -u test.test@comp30023 -p -p -f Test -n 1 retrieve unimelb-comp30023-2024.cloud.edu.au
 
 
 
