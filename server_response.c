@@ -130,9 +130,6 @@ void print_list_retrieve(list_t *list) {
 
     int firstLine = 0; // flag for the first line which has FETCH
 
-    int bytes_printed = 0; 
-
-
     // iterate through the packets linked list 
     while (current != NULL) { 
         int i = 0;

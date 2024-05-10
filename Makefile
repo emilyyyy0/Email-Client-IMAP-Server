@@ -34,6 +34,9 @@ noMessageNum:
 rawEmail: 
 	./fetchmail -u test.test@comp30023 -p -p -f Test -n 1 retrieve unimelb-comp30023-2024.cloud.edu.au
 
+numNotFound: 
+	./fetchmail -n 42 -u test@comp30023 -p pass -f Test retrieve unimelb-comp30023-2024.cloud.edu.au
+
 
 
 
