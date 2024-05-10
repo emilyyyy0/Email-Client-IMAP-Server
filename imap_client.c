@@ -216,20 +216,18 @@ void retrieve(int sockfd, int message_num) {
         }
         buffer[numBytes] = '\0';
 
-        // Check for continuation ("+") response 
+        // Check for continuation ("+") response
         if (buffer[0] == '+') {
             // More data is coming, store what we have so far
             insert_at_foot(packet_list, buffer + 1); // Skip the "+"
-            continue;  // Read the next packet
+        } else {
+            // Not a continuation, store the entire line
+            insert_at_foot(packet_list, buffer); 
         }
 
         // Check for tagged response
         if (strstr(buffer, "A03 OK")) {
-            // Success, store the last packet (if any)
-            if (buffer[0] != '\0') {  // Check if there's actual data
-                insert_at_foot(packet_list, buffer);
-            }
-            break;  // Exit the loop
+            break;  // Exit the loop after storing the last packet
         }
 
         // Check for message not found error
@@ -247,9 +245,8 @@ void retrieve(int sockfd, int message_num) {
 
         // Prints out every packet
         // will contain the raw content of the email message fetched, including headers, body and MIME structure 
-        printf("\n\n\n\nEvery packet:\n");
-        printf("%s", buffer);
-        insert_at_foot(packet_list, buffer); 
+        // printf("\n\n\n\nEvery packet:\n");
+        // printf("%s", buffer);
         
 
     }
