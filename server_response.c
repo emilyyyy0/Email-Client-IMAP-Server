@@ -122,3 +122,60 @@ int len_list(list_t *list) {
     return length;
 
 }
+
+
+// Function to traverse and print all the packets = server response
+void print_list_retrieve(list_t *list) {
+    node_t *current = list->head; // Start from the head of the list
+
+    
+    // char fetch[100]; // buffer for the FETCH line
+    // extractSubstringUntilNewline(current->packet, fetch); 
+    // int leng = strlen(fetch);
+    // printf(" the extracted one:%s \n", fetch);
+
+    int firstLine = 0; 
+
+    // int i = 0; 
+    // while(!firstLine) {
+    //     if ((current->packet)[i] == '\n') {
+    //         firstLine = 1; 
+    //     }
+
+    //     i++; 
+    // }
+    // // printf("%d\n", i);
+    // printf("%s\n", (current->packet) + i);
+   
+    
+
+    while (current != NULL) { 
+        //printf("%s\n", current->packet);
+        int i = 0;
+
+        char *str = current->packet; 
+
+        while(!firstLine) {
+            if (str[i] == '\n') {
+                firstLine = 1; 
+            }
+
+            i++; 
+        }
+        // printf("%d\n", i);
+        printf("%s", str + i);
+
+        current = current->next; 
+    }
+}
+
+
+void extractSubstringUntilNewline(const char *input, char *substring) {
+    int i = 0;
+    // Iterate through each character in the input string
+    while (input[i] != '\0' && input[i] != '\n') {
+        substring[i] = input[i];  // Copy character to substring
+        i++;
+    }
+    substring[i] = '\0';  // Null-terminate the substring
+}

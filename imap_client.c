@@ -216,6 +216,12 @@ void retrieve(int sockfd, int message_num) {
         }
         buffer[numBytes] = '\0';
 
+        // Check for lines to exclude
+        // if (strstr(buffer, "A03 OK") || strstr(buffer, "* FETCH")) {
+        //     continue; // Skip this line and read the next one
+        // }
+
+
         // Check for continuation ("+") response
         if (buffer[0] == '+') {
             // More data is coming, store what we have so far
@@ -252,12 +258,11 @@ void retrieve(int sockfd, int message_num) {
     }
 
     printf("\n \n\n-----------------PRINTING THE LIST -----------\n");
-    print_list(packet_list); // Or iterate through the list using head and next pointers
+    print_list_retrieve(packet_list); // Or iterate through the list using head and next pointers
 
     // Free the linked list
     free_list(packet_list);
     
-
 
 }
 
