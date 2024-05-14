@@ -52,5 +52,9 @@ void decode_quoted_printable(const char *input, char *output);
 
 void print_body_up_to_boundary(const char *body, const char *boundary);
 
+void parse_headers(const char *headers, char **content_type, char **encoding);
+
+void unfold_headers(char *headers);
+
 
 #endif

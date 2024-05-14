@@ -252,19 +252,8 @@ void retrieve(int sockfd, int message_num, list_t *packet_list) {
             exit(3);  // Exit with status 3
         }
 
-        // Prints out every packet
-        // will contain the raw content of the email message fetched, including headers, body and MIME structure 
-        // printf("\n\n\n\nEvery packet:\n");
-        // printf("%s", buffer);
-        
-
     }
 
-    // printf("\n \n\n-----------------PRINTING THE LIST -----------\n");
-    // print_list_retrieve(packet_list); // Or iterate through the list using head and next pointers
-
-    // // Free the linked list
-    // free_list(packet_list);
     
 
 }
@@ -286,6 +275,7 @@ void mime(int sockfd, list_t *packet_list) {
 
     // Content-Type: text/plain with charset=UTF-8
     // Content-Transfer-Encoding: quoted-printable | 7 bit | 8 bit
+    
     parse_mime_parts(buffer, boundary); 
 
 
@@ -398,15 +388,24 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
 
     // Process each MIME part
     while (part) {
+        // Skips past the boundary
         part += strlen(delimiter);
         if (*part == '-' && *(part + 1) == '-') {
             break;  // Reached the end of the MIME parts
         }
+        unfold_headers(part); 
+        printf("First PART: %s\n", part);
 
-        // Move to the next CRLF after the boundary delimiter
-        part = strstr(part, "\r\n");
+        // // Move to the next CRLF after the boundary delimiter
+        // part = strstr(part, "\r\n");
+        // if (!part) break;
+        // part += 2;  // Move past the CRLF
+        part = strstr(part, "\n");
+        if (!part) part = strstr(part, "\r\n");
         if (!part) break;
-        part += 2;  // Move past the CRLF
+        part += (part[0] == '\r') ? 2 : 1;  // Move past the line ending
+
+        printf("Second PART: %s\n", part);
 
         // Find the headers end (empty line)
         char *headers_end = strstr(part, "\r\n\r\n");
@@ -416,15 +415,18 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         char headers[1024];
         strncpy(headers, part, headers_end - part);
         headers[headers_end - part] = '\0';
+        printf("Headers: %s\n", headers);  // Debug print
 
         // Move to the body part
         part = headers_end + 4;
 
         // Check Content-Type and Content-Transfer-Encoding headers
-        char *content_type = strcasestr(headers, "Content-Type: ");
-        char *encoding = strcasestr(headers, "Content-Transfer-Encoding: ");
+        char *content_type = NULL;
+        char *encoding = NULL;
+        parse_headers(headers, &content_type, &encoding);
         
-        // Process the text/plain part with charset=UTF-8
+
+        // Process the first text/plain part with charset=UTF-8
         if (content_type && strcasestr(content_type, "text/plain") && strcasestr(content_type, "charset=UTF-8")) {
             char body[10240];  // Adjust size if necessary
             if (encoding && strcasestr(encoding, "quoted-printable")) {
@@ -434,19 +436,11 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
                 body[sizeof(body) - 1] = '\0';
             }
 
+            printf("PRINTING THE BODY\n");
             // Print the body up to the next boundary delimiter
             print_body_up_to_boundary(body, boundary);
-            return;
-              // Stop after printing the first matching part
-            
+            return;  // Stop after printing the first matching part
         }
-        // } else {
-        //     // If not text/plain, just print the raw content
-        //     char raw_body[10240];  // Adjust size if necessary
-        //     strncpy(raw_body, part, sizeof(raw_body) - 1);
-        //     raw_body[sizeof(raw_body) - 1] = '\0';
-        //     printf("Raw body:\n%s\n", raw_body);
-        // }
 
         // Find the next boundary delimiter
         part = strstr(part, delimiter);
@@ -474,6 +468,7 @@ void print_body_up_to_boundary(const char *body, const char *boundary) {
 
 
 void decode_quoted_printable(const char *input, char *output) {
+    printf("In quoted printable function\n");
     char *out = output;
     while (*input) {
         if (*input == '=') {
@@ -489,4 +484,57 @@ void decode_quoted_printable(const char *input, char *output) {
         }
     }
     *out = '\0';
+}
+
+// Function to parse headers and extract values for Content-Type and Content-Transfer-Encoding
+void parse_headers(const char *headers, char **content_type, char **encoding) {
+    const char *current = headers;
+    while (*current) {
+        if (strncasecmp(current, "Content-Type:", 13) == 0) {
+            *content_type = (char *)current + 13;
+            while (**content_type == ' ' || **content_type == '\t') (*content_type)++;
+        } else if (strncasecmp(current, "Content-Transfer-Encoding:", 26) == 0) {
+            *encoding = (char *)current + 26;
+            while (**encoding == ' ' || **encoding == '\t') (*encoding)++;
+        }
+        // Move to the next line
+        current = strstr(current, "\r\n");
+        if (!current) break;
+        current += 2;
+        // Handle folded headers (lines starting with space or tab)
+        if (*current == ' ' || *current == '\t') {
+            continue;
+        }
+    }
+}
+
+void unfold_headers(char *headers) {
+    int read_pos = 0, write_pos = 0;  // Pointers for reading and writing within the same string
+    int len = strlen(headers);  // Total length of the headers string
+    
+    // Loops through the string
+    while (read_pos + 2 < len) {
+        // Check if the current position is the "start" of a folded line
+        if (headers[read_pos] == '\r' && headers[read_pos + 1] == '\n' &&
+            (headers[read_pos + 2] == ' ' || headers[read_pos + 2] == '\t')) { 
+            // Skip the CRLF (\r\n)
+            read_pos += 2;
+
+            // Skips the whitespace that follows the CRLF which indicates line folding
+            while (read_pos < len && (headers[read_pos] == ' ' || headers[read_pos] == '\t')) {
+                read_pos++;
+            }
+        } else {
+            // If it's not a folded line, copy the character from read position to write position
+            headers[write_pos++] = headers[read_pos++];
+        }
+    }
+
+    // Copies any remaining characters that were not folded to the new structured line
+    while (read_pos < len) {
+        headers[write_pos++] = headers[read_pos++];
+    }
+
+    // Null-terminate the string
+    headers[write_pos] = '\0';
 }
