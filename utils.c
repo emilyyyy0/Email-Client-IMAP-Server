@@ -25,7 +25,7 @@ void parse_args(int argc, char *argv[], fetch_mail_t *fetch_mail) {
             fetch_mail->messageNum = atoi(argv[++i]);
         } 
         else if (strcmp(argv[i], "-t") == 0) {
-            fetch_mail->tag = 1;
+            fetch_mail->isTSL = 1;
         } 
         else if (fetch_mail->command == NULL) {
             fetch_mail->command = argv[i];
