@@ -52,15 +52,15 @@ int main(int argc, char *argv[]) {
     //send_command(sockfd, ""); 
 
     // Read the server's response to the initial greeting to server. 
-    printf("INITIAL SERVER GREETING: \n");
+    //printf("INITIAL SERVER GREETING: \n");
     read_response(sockfd, ""); // read and discard initial server greeting message
 
     // Perform login 
-    printf("\nLOGGING IN\n");
+    //printf("\nLOGGING IN\n");
     login(sockfd, fetch_mail.username, fetch_mail.password);
 
     // Select folder
-    printf("\nSELECTING FOLDER\n");
+    //printf("\nSELECTING FOLDER\n");
     select_folder(sockfd, fetch_mail.folder);
 
     list_t *packet_list = make_empty_list(); // create an empty list 

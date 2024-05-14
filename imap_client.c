@@ -78,7 +78,7 @@ void send_command(int sockfd, const char *cmd) {
     int bytes_left = len;  // Bytes left to send
     int bytes_sent;
 
-    printf("command being sent to server: %s", cmd);
+    //printf("command being sent to server: %s", cmd);
 
     // write system call transmits the command string to the server
     // sockfd: Specifies the file descriptor of the socket, which identifies the connection to the server.
@@ -260,7 +260,7 @@ void retrieve(int sockfd, int message_num, list_t *packet_list) {
 
 
 void mime(int sockfd, list_t *packet_list) {
-    printf("mime function\n");
+    //printf("mime function\n");
 
     
     // Concatenate all packets into a single buffer 
@@ -468,7 +468,7 @@ void print_body_up_to_boundary(const char *body, const char *boundary) {
 
 
 void decode_quoted_printable(const char *input, char *output) {
-    printf("In quoted printable function\n");
+    //printf("In quoted printable function\n");
     char *out = output;
     while (*input) {
         if (*input == '=') {
@@ -485,6 +485,29 @@ void decode_quoted_printable(const char *input, char *output) {
     }
     *out = '\0';
 }
+
+// Function to decode quoted-printable encoding
+// void decode_quoted_printable(const char *input, char *output) {
+//     char *out = output;
+//     while (*input) {
+//         if (*input == '=') {
+//             if (isxdigit(*(input + 1)) && isxdigit(*(input + 2))) {
+//                 char hex[3] = { *(input + 1), *(input + 2), '\0' };
+//                 *out++ = (char)strtol(hex, NULL, 16);
+//                 input += 3;
+//             } else if (*(input + 1) == '\r' && *(input + 2) == '\n') {
+//                 input += 3; // Skip the soft line break
+//             } else if (*(input + 1) == '\n') {
+//                 input += 2; // Skip the soft line break
+//             } else {
+//                 *out++ = *input++;
+//             }
+//         } else {
+//             *out++ = *input++;
+//         }
+//     }
+//     *out = '\0';
+// }
 
 // Function to parse headers and extract values for Content-Type and Content-Transfer-Encoding
 void parse_headers(const char *headers, char **content_type, char **encoding) {
