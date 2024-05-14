@@ -1,0 +1,11 @@
+./fetchmail -n 1 -p pass -u test@comp30023 mime unimelb-comp30023-2024.cloud.edu.au
+MIME-Version: 1.0
+boundary=a3db082a155977efa4360ef83b20589e58748c2fb6f413dbfe6915ddf7c0
+--a3db082a155977efa4360ef83b20589e58748c2fb6f413dbfe6915ddf7c0
+
+
+
+./fetchmail -u test.test@comp30023 -p -p -f Test -n 1 mime unimelb-comp30023-2024.cloud.edu.au
+Mime-Version: 1.0
+boundary="--==_mimepart_6626f64b5ee67_2ddfc4b1492049";
+----==_mimepart_6626f64b5ee67_2ddfc4b1492049

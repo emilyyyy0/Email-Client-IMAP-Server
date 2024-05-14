@@ -271,17 +271,22 @@ void retrieve(int sockfd, int message_num, list_t *packet_list) {
 
 
 void mime(int sockfd, list_t *packet_list) {
+    printf("mime function\n");
 
     
     // Concatenate all packets into a single buffer 
     char *buffer = concatenate_packets(packet_list); 
     //printf("%s", buffer); 
 
+    // Now find the MIME boundary
     char *boundary = find_mime_boundary(buffer);
-    printf("\n%s\n", boundary);
+    //printf("\n%s\n", boundary);
 
-    // Now find the MIME boundary 
-    //char *boundary = 
+    // Now we have to parse and decode the MIME parts
+
+    // Content-Type: text/plain with charset=UTF-8
+    // Content-Transfer-Encoding: quoted-printable | 7 bit | 8 bit
+    parse_mime_parts(buffer, boundary); 
 
 
     free(buffer); 
@@ -330,9 +335,7 @@ char *find_mime_boundary(const char *content) {
         return NULL;
     }
 
-
     //printf("mime_start: %s", mime_start);
-
 
     // Search for the Content-Type header with boundary parameter (case-insensitive)
     char *boundary_start = strcasestr(mime_start, "boundary=");
@@ -378,4 +381,112 @@ char *find_mime_boundary(const char *content) {
 }
 
 
+// Function to parse and process MIME parts
+void parse_mime_parts(const char *email_content, const char *boundary) {
+    // initial setup and finding the first boundary
+    char delimiter[256];
+    snprintf(delimiter, sizeof(delimiter), "--%s", boundary);
 
+    // Find the first boundary delimiter
+    char *part = strstr(email_content, delimiter);
+    if (!part) {
+        printf("Error: Boundary delimiter not found\n");
+        return;
+    }
+    // part = contains everything from the boundary including the boundary itself
+    //printf("%s", part);
+
+    // Process each MIME part
+    while (part) {
+        part += strlen(delimiter);
+        if (*part == '-' && *(part + 1) == '-') {
+            break;  // Reached the end of the MIME parts
+        }
+
+        // Move to the next CRLF after the boundary delimiter
+        part = strstr(part, "\r\n");
+        if (!part) break;
+        part += 2;  // Move past the CRLF
+
+        // Find the headers end (empty line)
+        char *headers_end = strstr(part, "\r\n\r\n");
+        if (!headers_end) break;
+
+        // Extract headers
+        char headers[1024];
+        strncpy(headers, part, headers_end - part);
+        headers[headers_end - part] = '\0';
+
+        // Move to the body part
+        part = headers_end + 4;
+
+        // Check Content-Type and Content-Transfer-Encoding headers
+        char *content_type = strcasestr(headers, "Content-Type: ");
+        char *encoding = strcasestr(headers, "Content-Transfer-Encoding: ");
+        
+        // Process the text/plain part with charset=UTF-8
+        if (content_type && strcasestr(content_type, "text/plain") && strcasestr(content_type, "charset=UTF-8")) {
+            char body[10240];  // Adjust size if necessary
+            if (encoding && strcasestr(encoding, "quoted-printable")) {
+                decode_quoted_printable(part, body);
+            } else {
+                strncpy(body, part, sizeof(body) - 1);
+                body[sizeof(body) - 1] = '\0';
+            }
+
+            // Print the body up to the next boundary delimiter
+            print_body_up_to_boundary(body, boundary);
+            return;
+              // Stop after printing the first matching part
+            
+        }
+        // } else {
+        //     // If not text/plain, just print the raw content
+        //     char raw_body[10240];  // Adjust size if necessary
+        //     strncpy(raw_body, part, sizeof(raw_body) - 1);
+        //     raw_body[sizeof(raw_body) - 1] = '\0';
+        //     printf("Raw body:\n%s\n", raw_body);
+        // }
+
+        // Find the next boundary delimiter
+        part = strstr(part, delimiter);
+    }
+
+
+}
+
+// Helper function to print the body up to the next boundary delimiter
+void print_body_up_to_boundary(const char *body, const char *boundary) {
+    char delimiter[256];
+    snprintf(delimiter, sizeof(delimiter), "--%s", boundary);
+
+    char *body_end = strstr(body, delimiter);
+    if (body_end) {
+        // Print up to the boundary delimiter
+        fwrite(body, 1, body_end - body, stdout);
+    } else {
+        // Print the entire body if no boundary delimiter is found
+        printf("%s", body);
+    }
+}
+
+
+
+
+void decode_quoted_printable(const char *input, char *output) {
+    char *out = output;
+    while (*input) {
+        if (*input == '=') {
+            if (isxdigit(*(input + 1)) && isxdigit(*(input + 2))) {
+                char hex[3] = { *(input + 1), *(input + 2), '\0' };
+                *out++ = (char)strtol(hex, NULL, 16);
+                input += 3;
+            } else {
+                *out++ = *input++;
+            }
+        } else {
+            *out++ = *input++;
+        }
+    }
+    *out = '\0';
+}

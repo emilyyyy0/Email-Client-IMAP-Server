@@ -46,7 +46,8 @@ retrieve:
 
 mime: 
 	./fetchmail -n 1 -p pass -u test@comp30023 mime unimelb-comp30023-2024.cloud.edu.au 
-	./fetchmail -u test.test@comp30023 -p -p -f Test -n 1 mime unimelb-comp30023-2024.cloud.edu.au
+	./fetchmail -f Test -n 2 -p pass -u test@comp30023 mime unimelb-comp30023-2024.cloud.edu.au 
+
 
 
 

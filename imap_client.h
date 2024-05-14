@@ -46,5 +46,11 @@ char *concatenate_packets(list_t *packet_list);
 
 char *find_mime_boundary(const char *content);
 
+void parse_mime_parts(const char *email_content, const char *boundary);
+
+void decode_quoted_printable(const char *input, char *output);
+
+void print_body_up_to_boundary(const char *body, const char *boundary);
+
 
 #endif
