@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "string.h"
 
 #include "imap_client.h"
 
 #include "server_response.h"
+
+#include "utils.h"
 
 // Implement functions to connect to the imap server using sockets
 // Functions to log in, select folder, fetch messages, and other IMAP commands.
@@ -183,7 +186,7 @@ void select_folder(int sockfd, const char *folder_name) {
 
 
 
-void retrieve(int sockfd, int message_num) {
+void retrieve(int sockfd, int message_num, list_t *packet_list) {
     // The command is retrieve, we need to fetch the email:
     // tag FETCH messageNum BODY.PEEK[]
 
@@ -205,7 +208,7 @@ void retrieve(int sockfd, int message_num) {
 
 
     // Read the response and store packets in a linked list 
-    list_t *packet_list = make_empty_list(); // create an empty list 
+    //list_t *packet_list = make_empty_list(); // create an empty list 
     char buffer[BUFFER_SIZE];
 
     while (1) {
@@ -257,18 +260,136 @@ void retrieve(int sockfd, int message_num) {
 
     }
 
-    printf("\n \n\n-----------------PRINTING THE LIST -----------\n");
-    print_list_retrieve(packet_list); // Or iterate through the list using head and next pointers
+    // printf("\n \n\n-----------------PRINTING THE LIST -----------\n");
+    // print_list_retrieve(packet_list); // Or iterate through the list using head and next pointers
 
-    // Free the linked list
-    free_list(packet_list);
+    // // Free the linked list
+    // free_list(packet_list);
     
 
 }
 
 
+void mime(int sockfd, list_t *packet_list) {
+
+    
+    // Concatenate all packets into a single buffer 
+    char *buffer = concatenate_packets(packet_list); 
+    //printf("%s", buffer); 
+
+    char *boundary = find_mime_boundary(buffer);
+    printf("\nboundary: %s \n", boundary);
+
+    // Now find the MIME boundary 
+    //char *boundary = 
+
+
+    free(buffer); 
+
+}
+
+
+// Helper function to concatenate packets into a single buffer 
+char *concatenate_packets(list_t *packet_list) {
+    // calcualte the total size needed
+    size_t total_size = 0; 
+    
+    node_t *current = packet_list ->head; 
+
+    while (current != NULL) {
+        total_size += strlen(current->packet); 
+        current = current->next; 
+
+    }
+    // Allocate memory for the concatenated buffer
+    char *buffer = (char *)malloc(total_size + 1); 
+    if (buffer == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1); 
+    }
+
+    // Copy packet data into the buffer
+    buffer[0] = '\0';
+    current = packet_list->head; 
+    while(current != NULL) {
+        strcat(buffer, current->packet); 
+        current = current->next; 
+    }
+
+    return buffer; 
+}
+
+
+// Locate and extract the boundary parameter from MIME headers 
+char *find_mime_boundary(const char *content) {
+
+    
+    // Search for the MIME-Version header (case-insensitive)
+    char *mime_start = strcasestr(content, "mime-version: 1.0");
+    if (!mime_start) {
+        return NULL;
+    }
+
+
+    //printf("mime_start: %s", mime_start);
+
+    // // Serach for the content-type header with boundary parameter
+    // char *boundary_start = strstr(mime_start, "boundary=\"");
+    // if (!boundary_start) return NULL; 
+
+    // // move poitner to the start of the boundary value
+    // boundary_start += strlen("boundary=\""); 
+    
+    // // Find the end of the boundary value (the closing double quote)
+    // char *boundary_end = strchr(boundary_start, '\"');
+    // if (!boundary_end) return NULL;
+
+    // // Temporarily replace the closing quote with a null terminator to isolate the boundary value   
+    // *boundary_end = '\0';
+    // return boundary_start;
+
+    // Search for the Content-Type header with boundary parameter (case-insensitive)
+    char *boundary_start = strcasestr(mime_start, "boundary=");
+    if (!boundary_start) {
+        return NULL;
+    }
+
+    // Move pointer to the start of the boundary value
+    boundary_start += strlen("boundary=");
+
+    // Handle potential double quotes around the boundary value
+    char *boundary_end;
+    if (*boundary_start == '\"') {
+        boundary_start++;
+        boundary_end = strchr(boundary_start, '\"');
+        if (!boundary_end) {
+            return NULL;
+        }
+    } else {
+        // In case boundary value is not quoted
+        boundary_end = strpbrk(boundary_start, ";\n");
+        if (!boundary_end) {
+            boundary_end = boundary_start + strlen(boundary_start);
+        }
+    }
+
+    // Calculate the length of the boundary value
+    size_t boundary_length = boundary_end - boundary_start;
+
+    // Allocate memory for the actual boundary value
+    char *boundary = (char *)malloc(boundary_length + 1);
+    if (!boundary) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return NULL;
+    }
+
+    // Copy the boundary value into the allocated memory
+    strncpy(boundary, boundary_start, boundary_length);
+    boundary[boundary_length] = '\0';
+
+    return boundary;
+
+}
 
 
 
-
-// const char *hostname, const char *port

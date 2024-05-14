@@ -45,15 +45,24 @@ void parse_args(int argc, char *argv[], fetch_mail_t *fetch_mail) {
         printf("At least one of the four core arguments cannot be found\n");
     }
 
+}
 
+// Function to convert a string to lowercase
+void to_lowercase(char *str) {
+    for (; *str; ++str) *str = tolower(*str);
+}
 
-    // // Print stored command arguments
-    // printf("Username: %s\n", fetch_mail->username);
-    // printf("Password: %s\n", fetch_mail->password);
-    // printf("Folder: %s\n", fetch_mail->folder ? fetch_mail->folder : "not specified");
-    // printf("MessageNum: %d\n", fetch_mail->messageNum);
-    // printf("Tag: %d\n", fetch_mail->tag);
-    // printf("Command: %s\n", fetch_mail->command);
-    // printf("Server Name: %s\n", fetch_mail->server_name);
-
+// Case-insensitive strstr function
+char *strcasestr(const char *haystack, const char *needle) {
+    if (!*needle) return (char *) haystack;
+    for (; *haystack; ++haystack) {
+        if (tolower((unsigned char) *haystack) == tolower((unsigned char) *needle)) {
+            const char *h, *n;
+            for (h = haystack, n = needle; *h && *n; ++h, ++n) {
+                if (tolower((unsigned char) *h) != tolower((unsigned char) *n)) break;
+            }
+            if (!*n) return (char *) haystack;
+        }
+    }
+    return NULL;
 }

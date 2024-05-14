@@ -63,18 +63,31 @@ int main(int argc, char *argv[]) {
     printf("\nSELECTING FOLDER\n");
     select_folder(sockfd, fetch_mail.folder);
 
+    list_t *packet_list = make_empty_list(); // create an empty list 
+    retrieve(sockfd, fetch_mail.messageNum, packet_list);
+
 
 
     // If conditions to run the appropriate command given
     if (strcmp(fetch_mail.command, "retrieve") == 0){
         // To retrieve and print email
-        printf("\n-----------------RETRIEVING MESSAGE--------------------\n");
-        retrieve(sockfd, fetch_mail.messageNum);
+        //retrieve(sockfd, fetch_mail.messageNum, packet_list);
+        printf("\n \n\n-----------------RETRIEVING MESSAGE-----------\n");
+        print_list_retrieve(packet_list); // Or iterate through the list using head and next pointers
     }
+
+    if (strcmp(fetch_mail.command, "mime") == 0) {
+        printf("\n------------------------MIME----------------------------\n");
+        mime(sockfd, packet_list); 
+    }
+
+    free_list(packet_list);
 
 
     return 0;
 }
+
+// REMEMBER TO FREE THE LIST 
 
 
 

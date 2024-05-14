@@ -44,6 +44,13 @@ retrieve:
 	./fetchmail -f 'With Space' -n 1 -u test@comp30023 -p pass retrieve unimelb-comp30023-2024.cloud.edu.au
 
 
+mime: 
+	./fetchmail -n 1 -p pass -u test@comp30023 mime unimelb-comp30023-2024.cloud.edu.au 
+	./fetchmail -u test.test@comp30023 -p -p -f Test -n 1 mime unimelb-comp30023-2024.cloud.edu.au
+
+
+
+
 
 
 
