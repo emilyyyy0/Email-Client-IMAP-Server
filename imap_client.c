@@ -278,7 +278,7 @@ void mime(int sockfd, list_t *packet_list) {
     //printf("%s", buffer); 
 
     char *boundary = find_mime_boundary(buffer);
-    printf("\nboundary: %s \n", boundary);
+    printf("\n%s\n", boundary);
 
     // Now find the MIME boundary 
     //char *boundary = 
@@ -333,20 +333,6 @@ char *find_mime_boundary(const char *content) {
 
     //printf("mime_start: %s", mime_start);
 
-    // // Serach for the content-type header with boundary parameter
-    // char *boundary_start = strstr(mime_start, "boundary=\"");
-    // if (!boundary_start) return NULL; 
-
-    // // move poitner to the start of the boundary value
-    // boundary_start += strlen("boundary=\""); 
-    
-    // // Find the end of the boundary value (the closing double quote)
-    // char *boundary_end = strchr(boundary_start, '\"');
-    // if (!boundary_end) return NULL;
-
-    // // Temporarily replace the closing quote with a null terminator to isolate the boundary value   
-    // *boundary_end = '\0';
-    // return boundary_start;
 
     // Search for the Content-Type header with boundary parameter (case-insensitive)
     char *boundary_start = strcasestr(mime_start, "boundary=");
