@@ -394,7 +394,7 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
             break;  // Reached the end of the MIME parts
         }
         unfold_headers(part); 
-        printf("First PART: %s\n", part);
+        //printf("First PART: %s\n", part);
 
         // // Move to the next CRLF after the boundary delimiter
         // part = strstr(part, "\r\n");
@@ -405,7 +405,7 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         if (!part) break;
         part += (part[0] == '\r') ? 2 : 1;  // Move past the line ending
 
-        printf("Second PART: %s\n", part);
+        //printf("Second PART: %s\n", part);
 
         // Find the headers end (empty line)
         char *headers_end = strstr(part, "\r\n\r\n");
@@ -415,7 +415,7 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         char headers[1024];
         strncpy(headers, part, headers_end - part);
         headers[headers_end - part] = '\0';
-        printf("Headers: %s\n", headers);  // Debug print
+        //printf("Headers: %s\n", headers);  // Debug print
 
         // Move to the body part
         part = headers_end + 4;
@@ -436,7 +436,7 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
                 body[sizeof(body) - 1] = '\0';
             }
 
-            printf("PRINTING THE BODY\n");
+            //printf("PRINTING THE BODY\n");
             // Print the body up to the next boundary delimiter
             print_body_up_to_boundary(body, boundary);
             return;  // Stop after printing the first matching part
