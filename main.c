@@ -9,7 +9,12 @@ int main(int argc, char *argv[]) {
     fetch_mail_t fetch_mail = {NULL, NULL, NULL, -1, 0, NULL, NULL};
 
     // Call parse args to read in the command line arguments present
-    parse_args(argc, argv, &fetch_mail);
+    int parse_arg = parse_args(argc, argv, &fetch_mail);
+
+    if (parse_arg != 1) {
+        printf("Failed -- Return Code: %d\n", parse_arg);
+        exit(1);
+    }
 
     int sockfd = 0; 
 
@@ -59,6 +64,7 @@ int main(int argc, char *argv[]) {
         // To print raw email 
         //printf("\n \n\n-----------------RETRIEVE MESSAGE-----------\n");
         print_list_retrieve(packet_list);
+        exit(0);
     }
 
     if (strcmp(fetch_mail.command, "parse") == 0) {

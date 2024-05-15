@@ -3,6 +3,8 @@
 
 #include <math.h>
 
+#define NUL_PLACEHOLDER '\x01'
+
 // linked list node
 typedef struct node node_t;
 
@@ -51,5 +53,10 @@ void printUpToIndex(char *string, int index);
 void print_subject_list(list_t *subject_list);
 
 void sort_subject_list(list_t *list);
+
+// void printHex(char c);
+
+
+void print_string_with_nul_handling(const char *str);
 
 #endif

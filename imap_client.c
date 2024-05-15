@@ -34,7 +34,7 @@ int create_connection(const char *hostname, const char *port) {
     // with res0 pointing to the head of the linked list 
     // the hints structure guides the type of addresses returned
     if (getaddrinfo(hostname, port, &hints, &res0) != 0) {
-        fprintf(stderr, "error: getaddreinfo\n");
+        fprintf(stderr, "error: getaddresinfo\n");
         exit(1); 
     }
 
@@ -84,10 +84,6 @@ void send_command(int sockfd, const char *cmd) {
     // sockfd: Specifies the file descriptor of the socket, which identifies the connection to the server.
     // cmd: the command string to be sent
     // len: tell write() the exact number of bytes to send from the buffer
-    // if (write(sockfd, cmd, len) != len) {
-    //     // this ensures  that all bytes of the command string were successfully written to the socket
-    //     error("socket is not writable", 1); // partial write or a write failure
-    // }
 
      // Continuously attempt to write until all bytes are sent
     while (bytes_left > 0) {
@@ -136,7 +132,7 @@ void read_response(int sockfd, const char* tag) {
 }
 
 
-
+// Function to log into the server
 void login(int sockfd, const char* username, const char* password) {
     char command[BUFFER_SIZE]; // Buffer to hold the complete command string
 
@@ -150,7 +146,7 @@ void login(int sockfd, const char* username, const char* password) {
     read_response(sockfd, "A01"); // pass tag used in the login command
 }
 
-
+// Function to select a folder we want to read from 
 void select_folder(int sockfd, const char *folder_name) {
     char command[BUFFER_SIZE];
 
@@ -185,7 +181,7 @@ void select_folder(int sockfd, const char *folder_name) {
 
 
 
-
+// If command is retrieve, we fetch the email
 void retrieve(int sockfd, int message_num, list_t *packet_list) {
     // The command is retrieve, we need to fetch the email:
     // tag FETCH messageNum BODY.PEEK[]
@@ -218,11 +214,6 @@ void retrieve(int sockfd, int message_num, list_t *packet_list) {
             error("ERROR reading from socket", 1);
         }
         buffer[numBytes] = '\0';
-
-        // Check for lines to exclude
-        // if (strstr(buffer, "A03 OK") || strstr(buffer, "* FETCH")) {
-        //     continue; // Skip this line and read the next one
-        // }
 
 
         // Check for continuation ("+") response
@@ -259,9 +250,8 @@ void retrieve(int sockfd, int message_num, list_t *packet_list) {
 }
 
 
+// function that decode MIME messages
 void mime(int sockfd, list_t *packet_list) {
-    //printf("mime function\n");
-
     
     // Concatenate all packets into a single buffer 
     char *buffer = concatenate_packets(packet_list); 
@@ -278,7 +268,7 @@ void mime(int sockfd, list_t *packet_list) {
     
     parse_mime_parts(buffer, boundary); 
 
-
+    free(boundary); 
     free(buffer); 
     return;
 
@@ -385,8 +375,6 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         return;
     }
     // part = contains everything from the boundary including the boundary itself
-    //printf("RETRIEVE: \n");
-    //printf("%s", part);
 
     // Process each MIME part
     while (part) {
@@ -403,8 +391,6 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         
 
         // // Move to the next CRLF after the boundary delimiter
-        // part = strstr(part, "\r\n");
-        // if (!part) break;
         // part += 2;  // Move past the CRLF
         part = strstr(part, "\n");
         if (!part) part = strstr(part, "\r\n");
@@ -458,6 +444,7 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
             //printf("PRINTING THE BODY\n");
             // Print the body up to the next boundary delimiter
             //print_body_up_to_boundary(body, boundary);
+            free(result); 
             return;  // Stop after printing the first matching part
         }
 
@@ -482,7 +469,6 @@ void print_body_up_to_boundary(const char *body, const char *boundary) {
         printf("%s", body);
     }
 }
-
 
 
 
@@ -557,7 +543,6 @@ char *get_body_up_to_boundary(const char *body, const char *boundary) {
 
 
 
-
 void unfold_headers_mime(char *headers) {
     int read_pos = 0, write_pos = 0;
     int len = strlen(headers);
@@ -607,8 +592,6 @@ void unfold_headers_mime(char *headers) {
     // Null-terminate the string
     headers[write_pos] = '\0';
 }
-
-
 
 
 

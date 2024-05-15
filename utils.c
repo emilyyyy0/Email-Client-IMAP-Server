@@ -7,7 +7,7 @@
 
 
 // A function to read in the command line arguments given and store them in the fetchmail struct
-void parse_args(int argc, char *argv[], fetch_mail_t *fetch_mail) {
+int parse_args(int argc, char *argv[], fetch_mail_t *fetch_mail) {
 
     // Reads in all the command arguments given and stores them in the appropriate variable
     for (int i = 1; i < argc; i++) {
@@ -42,8 +42,12 @@ void parse_args(int argc, char *argv[], fetch_mail_t *fetch_mail) {
 
     // Checks if all four core arguments have been stored
     if (!fetch_mail->username || !fetch_mail->password || !fetch_mail->command || !fetch_mail->server_name) {
-        printf("At least one of the four core arguments cannot be found\n");
+        //printf("At least one of the four core arguments cannot be found\n");
+        return 0;
+
     }
+
+    return 1;
 
 }
 
