@@ -1356,3 +1356,26 @@ ses using Canvas.  To change or turn off email notifications, visit: =
 
 https://canvas.lms.unimelb.edu.au/profile/communication
 
+
+
+
+
+
+
+
+
+/////////////////////
+
+5c5,6
+< nts/474868). The marks for each question are detailed in a comment in the=assignment.
+---
+> nts/474868). The marks for each question are detailed in a comment in the=
+>  assignment.
+64c65,66
+< If you would like to view your test and review your own answers, then you=can register for ([registration form] (https://forms.office.com/r/EuWKWC=
+---
+> If you would like to view your test and review your own answers, then you=
+>  can register for ([registration form] (https://forms.office.com/r/EuWKWC=
+105d106
+< 
+make: *** [mimediff] Error 1

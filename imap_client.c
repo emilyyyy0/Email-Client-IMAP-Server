@@ -280,6 +280,7 @@ void mime(int sockfd, list_t *packet_list) {
 
 
     free(buffer); 
+    return;
 
 }
 
@@ -384,7 +385,8 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         return;
     }
     // part = contains everything from the boundary including the boundary itself
-    //printf("%s", part);
+    printf("RETRIEVE: \n");
+    printf("%s", part);
 
     // Process each MIME part
     while (part) {
@@ -393,8 +395,12 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         if (*part == '-' && *(part + 1) == '-') {
             break;  // Reached the end of the MIME parts
         }
-        unfold_headers(part); 
-        //printf("First PART: %s\n", part);
+
+        printf("First PART: %s\n", part);
+        unfold_headers_mime(part); 
+
+        printf("after unfolding: %s\n", part);
+        
 
         // // Move to the next CRLF after the boundary delimiter
         // part = strstr(part, "\r\n");
@@ -435,7 +441,7 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
 
                 //printf("INPUT %s\n", result);
                 
-                decode_quoted_printable(result, body);
+                decode_quoted_printable(result, body); // want this code to clean up the format 
 
                 //printf("QUOTED PRINTABLE: %s\n", body);
 
@@ -444,8 +450,11 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
                 strncpy(body, part, sizeof(body) - 1);
                 body[sizeof(body) - 1] = '\0';
             }
+            
+            
 
-            printf("PRINTING THE BODY\n");
+
+            //printf("PRINTING THE BODY\n");
             // Print the body up to the next boundary delimiter
             print_body_up_to_boundary(body, boundary);
             return;  // Stop after printing the first matching part
@@ -455,7 +464,7 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         part = strstr(part, delimiter);
     }
 
-
+    return;
 }
 
 // Helper function to print the body up to the next boundary delimiter
@@ -543,6 +552,7 @@ void parse_headers(const char *headers, char **content_type, char **encoding) {
 }
 
 void unfold_headers(char *headers) {
+    printf("In the unfold headers function\n");
     int read_pos = 0, write_pos = 0;  // Pointers for reading and writing within the same string
     int len = strlen(headers);  // Total length of the headers string
     
@@ -605,9 +615,10 @@ char *get_body_up_to_boundary(const char *body, const char *boundary) {
 }
 
 
-// Function to decode quoted-printable encoding selectively
+//Function to decode quoted-printable encoding selectively
 void decode_quoted_printable(const char *input, char *output) {
     printf("in decoded printable function:\n %s\n", input);
+    //printf("in decoded printable function:\n %s\n", input);
     char *out = output;
     while (*input) {
         if (*input == '=') {
@@ -632,4 +643,57 @@ void decode_quoted_printable(const char *input, char *output) {
         }
     }
     *out = '\0';
+
+}
+
+
+
+void unfold_headers_mime(char *headers) {
+    int read_pos = 0, write_pos = 0;
+    int len = strlen(headers);
+
+    int content_type_pos = -1;
+    int content_transfer_encoding_pos = -1;
+
+    // Find positions of "Content-Type" and "Content-Transfer-Encoding" headers
+    char *content_type_ptr = strstr(headers, "Content-Type:");
+    if (content_type_ptr) {
+        content_type_pos = content_type_ptr - headers;
+    }
+
+    char *content_transfer_encoding_ptr = strstr(headers, "Content-Transfer-Encoding:");
+    if (content_transfer_encoding_ptr) {
+        content_transfer_encoding_pos = content_transfer_encoding_ptr - headers;
+    }
+
+    // Determine the position up to which we need to unfold
+    int unfold_pos = len;
+    if (content_type_pos != -1 && content_transfer_encoding_pos != -1) {
+        unfold_pos = (content_type_pos > content_transfer_encoding_pos) ? content_type_pos : content_transfer_encoding_pos;
+    } else if (content_type_pos != -1) {
+        unfold_pos = content_type_pos;
+    } else if (content_transfer_encoding_pos != -1) {
+        unfold_pos = content_transfer_encoding_pos;
+    }
+
+    // Loops through the string and unfold headers up to the determined position
+    while (read_pos < unfold_pos && read_pos + 2 < len) {
+        if (headers[read_pos] == '\r' && headers[read_pos + 1] == '\n' &&
+            (headers[read_pos + 2] == ' ' || headers[read_pos + 2] == '\t')) { 
+            read_pos += 2;
+            while (read_pos < len && (headers[read_pos] == ' ' || headers[read_pos] == '\t')) {
+                read_pos++;
+            }
+        } else {
+            headers[write_pos++] = headers[read_pos++];
+        }
+    }
+
+    // Copy any remaining characters that were not folded up to the determined position
+    while (read_pos < len) {
+        headers[write_pos++] = headers[read_pos++];
+    }
+
+    // Null-terminate the string
+    headers[write_pos] = '\0';
 }
