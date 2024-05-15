@@ -385,8 +385,8 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         return;
     }
     // part = contains everything from the boundary including the boundary itself
-    printf("RETRIEVE: \n");
-    printf("%s", part);
+    //printf("RETRIEVE: \n");
+    //printf("%s", part);
 
     // Process each MIME part
     while (part) {
@@ -396,10 +396,10 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
             break;  // Reached the end of the MIME parts
         }
 
-        printf("First PART: %s\n", part);
+        //printf("First PART: %s\n", part);
         unfold_headers_mime(part); 
 
-        printf("after unfolding: %s\n", part);
+        //printf("after unfolding: %s\n", part);
         
 
         // // Move to the next CRLF after the boundary delimiter
@@ -435,24 +435,25 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         // Process the first text/plain part with charset=UTF-8
         if (content_type && strcasestr(content_type, "text/plain") && strcasestr(content_type, "charset=UTF-8")) {
             char body[10240];  // Adjust size if necessary
-            if (encoding && strcasestr(encoding, "quoted-printable")) {
+            // if (encoding && strcasestr(encoding, "quoted-printable")) {
 
-                char *result = get_body_up_to_boundary(part, boundary); // Cut the part into just the part we want
+            //     char *result = get_body_up_to_boundary(part, boundary); // Cut the part into just the part we want
 
-                //printf("INPUT %s\n", result);
+            //     //printf("INPUT %s\n", result);
                 
-                decode_quoted_printable(result, body); // want this code to clean up the format 
+            //     decode_quoted_printable(result, body); // want this code to clean up the format 
 
-                //printf("QUOTED PRINTABLE: %s\n", body);
+            //     //printf("QUOTED PRINTABLE: %s\n", body);
 
 
-            } else {
-                strncpy(body, part, sizeof(body) - 1);
-                body[sizeof(body) - 1] = '\0';
-            }
+            // } else {
+            //     strncpy(body, part, sizeof(body) - 1);
+            //     body[sizeof(body) - 1] = '\0';
+            // }
             
             
-
+            strncpy(body, part, sizeof(body) - 1);
+            body[sizeof(body) - 1] = '\0';
 
             //printf("PRINTING THE BODY\n");
             // Print the body up to the next boundary delimiter
