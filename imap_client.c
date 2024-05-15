@@ -455,9 +455,13 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
             strncpy(body, part, sizeof(body) - 1);
             body[sizeof(body) - 1] = '\0';
 
+            char *result = get_body_up_to_boundary(part, boundary); // Cut the part into just the part we want
+            printf("%s", result);
+           
+
             //printf("PRINTING THE BODY\n");
             // Print the body up to the next boundary delimiter
-            print_body_up_to_boundary(body, boundary);
+            //print_body_up_to_boundary(body, boundary);
             return;  // Stop after printing the first matching part
         }
 
@@ -485,48 +489,6 @@ void print_body_up_to_boundary(const char *body, const char *boundary) {
 
 
 
-
-// void decode_quoted_printable(const char *input, char *output) {
-//     //printf("In quoted printable function\n");
-//     char *out = output;
-//     while (*input) {
-//         if (*input == '=') {
-//             if (isxdigit(*(input + 1)) && isxdigit(*(input + 2))) {
-//                 char hex[3] = { *(input + 1), *(input + 2), '\0' };
-//                 *out++ = (char)strtol(hex, NULL, 16);
-//                 input += 3;
-//             } else {
-//                 *out++ = *input++;
-//             }
-//         } else {
-//             *out++ = *input++;
-//         }
-//     }
-//     *out = '\0';
-// }
-
-//Function to decode quoted-printable encoding
-// void decode_quoted_printable(const char *input, char *output) {
-//     char *out = output;
-//     while (*input) {
-//         if (*input == '=') {
-//             if (isxdigit(*(input + 1)) && isxdigit(*(input + 2))) {
-//                 char hex[3] = { *(input + 1), *(input + 2), '\0' };
-//                 *out++ = (char)strtol(hex, NULL, 16);
-//                 input += 3;
-//             } else if (*(input + 1) == '\r' && *(input + 2) == '\n') {
-//                 input += 3; // Skip the soft line break
-//             } else if (*(input + 1) == '\n') {
-//                 input += 2; // Skip the soft line break
-//             } else {
-//                 *out++ = *input++;
-//             }
-//         } else {
-//             *out++ = *input++;
-//         }
-//     }
-//     *out = '\0';
-// }
 
 
 
@@ -585,7 +547,8 @@ void unfold_headers(char *headers) {
 }
 
 
-// Helper function to return the body up to the next boundary delimiter as a string
+
+// Helper function to return the body up to the line before the next boundary delimiter as a string
 char *get_body_up_to_boundary(const char *body, const char *boundary) {
     char delimiter[256];
     snprintf(delimiter, sizeof(delimiter), "--%s", boundary);
@@ -596,7 +559,21 @@ char *get_body_up_to_boundary(const char *body, const char *boundary) {
     // Calculate the length of the body to return
     size_t body_length;
     if (body_end) {
-        body_length = body_end - body;
+        // Backtrack to find the newline before the boundary
+        char *prev_newline = body_end;
+        while (prev_newline > body && *(prev_newline - 1) != '\n') {
+            prev_newline--;
+        }
+
+        // If there's a \r before \n, include it in body_length
+        if (prev_newline > body && *(prev_newline - 2) == '\r') {
+            prev_newline -= 2;
+        } else if (prev_newline > body && *(prev_newline - 1) == '\n') {
+            prev_newline--;
+        }
+
+        // Set body_length to be up to the line before the boundary
+        body_length = prev_newline - body;
     } else {
         body_length = strlen(body);
     }
@@ -614,6 +591,13 @@ char *get_body_up_to_boundary(const char *body, const char *boundary) {
 
     return result;
 }
+
+
+
+
+
+
+
 
 
 //Function to decode quoted-printable encoding selectively
