@@ -74,5 +74,12 @@ void trim_whitespace(char *str);
 void unfold_header(char *header);
 
 
+// LIST
+
+void list(int sockfd, int message_num, list_t *subject_list);
+
+void trim_subject(char *subject);
+
+
 
 #endif

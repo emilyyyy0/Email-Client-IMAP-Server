@@ -32,41 +32,41 @@ int is_list_empty(list_t *list) {
 
 // Insert a node at the foot of the linked list 
 // Inserts a new node with value "process" to the end of "list" 
-void insert_at_foot(list_t *list, char *packet) {
-    // Ensure that list and packet are not NULL
-    assert(list != NULL && packet != NULL);
+// void insert_at_foot(list_t *list, char *packet) {
+//     // Ensure that list and packet are not NULL
+//     assert(list != NULL && packet != NULL);
 
-    // Creates a new node with packet inside of it
-    node_t *new = (node_t*)malloc(sizeof(*new));
-    if (new == NULL) {
-        perror("Memory allocation failed");
-        exit(EXIT_FAILURE);
-    }
+//     // Creates a new node with packet inside of it
+//     node_t *new = (node_t*)malloc(sizeof(*new));
+//     if (new == NULL) {
+//         perror("Memory allocation failed");
+//         exit(EXIT_FAILURE);
+//     }
 
-    // Allocate memory for the packet data
-    new->packet = (char*)malloc(strlen(packet) + 1);
-    if (new->packet == NULL) {
-        perror("Memory allocation failed");
-        free(new); // Free the allocated node memory
-        exit(EXIT_FAILURE);
-    }
+//     // Allocate memory for the packet data
+//     new->packet = (char*)malloc(strlen(packet) + 1);
+//     if (new->packet == NULL) {
+//         perror("Memory allocation failed");
+//         free(new); // Free the allocated node memory
+//         exit(EXIT_FAILURE);
+//     }
 
-    // Stores response in packet->response
-    // Copy the data from packet into the newly allocated memory with bounds checking
-    strncpy(new->packet, packet, strlen(packet) + 1);
+//     // Stores response in packet->response
+//     // Copy the data from packet into the newly allocated memory with bounds checking
+//     strncpy(new->packet, packet, strlen(packet) + 1);
 
-    new->next = NULL; // this points to NULL as it is the end of the list
+//     new->next = NULL; // this points to NULL as it is the end of the list
  
 
-    if (list->head == NULL) {
-        // First insert into the list 
-        // new becomes the only node in the list
-        list->head = list->foot = new;
-    } else {
-        list->foot->next = new; // old tail connected to "new"
-        list->foot = new; // new foot of the list 
-    }
-}
+//     if (list->head == NULL) {
+//         // First insert into the list 
+//         // new becomes the only node in the list
+//         list->head = list->foot = new;
+//     } else {
+//         list->foot->next = new; // old tail connected to "new"
+//         list->foot = new; // new foot of the list 
+//     }
+// }
 
 // A function to print the packet
 void print_packet(node_t *node) {
@@ -188,4 +188,101 @@ void printUpToIndex(char *string, int index) {
     string[index] = '\0';      // Null-terminate the string at the index
     printf("%s\n", string);    // Print the string
     string[index] = temp;      // Restore the original character
+}
+
+
+void insert_at_foot(list_t *list, const char *packet, const char *type) {
+    assert(list != NULL && packet != NULL);
+
+    // Memory allocation of the linked list node
+    node_t *new_node = (node_t *)malloc(sizeof(*new_node));
+    if (new_node == NULL) {
+        perror("Failed to allocate memory for new node");
+        exit(EXIT_FAILURE);
+    }
+
+    // Memory allocation for packet
+    new_node->packet = (char *)malloc(strlen(packet) + 1);
+    if (new_node->packet == NULL) {
+        perror("Failed to allocate memory for packet");
+        free(new_node); // Clean up the node itself
+        exit(EXIT_FAILURE);
+    }
+    strcpy(new_node->packet, packet); // Copy data into packet
+
+    // Memory allocation for node type (if applicable ---> for header_list only)
+    if (type != NULL) {
+        new_node->type = (char *)malloc(strlen(type) + 1);
+        if (new_node->type ==
+            NULL) { // Always good to check the result of malloc
+            perror("Failed to allocate memory for type");
+            free(new_node->packet); // Clean up previously allocated memory
+            free(new_node);         // Clean up the node itself
+            exit(EXIT_FAILURE);
+        }
+        strcpy(new_node->type, type); // Copy data into type
+    } else {
+        new_node->type = NULL;
+    }
+
+    // Initialization of node and list pointers
+    new_node->next = NULL;
+    if (list->head == NULL) {
+        list->head = list->foot = new_node;
+    } else {
+        list->foot->next = new_node;
+        list->foot = new_node;
+    }
+}
+
+
+
+// Bubble sort function to sort subject_list by type (message sequence number)
+void sort_subject_list(list_t *list) {
+    // Check if the list is empty
+    if (list->head == NULL) {
+        printf("No head found\n");
+        exit(3); // Exit if the list is empty
+    }
+
+    int swapped;
+    node_t *ptr1;
+    node_t *lptr = NULL; // Last pointer to mark the end of the unsorted part
+
+    // Perform bubble sort
+    do {
+        swapped = 0;       // Reset swapped flag
+        ptr1 = list->head; // Start from the head of the list
+
+        // Traverse the list up to the last sorted element
+        while (ptr1->next != lptr) {
+            // Compare the sequence numbers of the current node and the next
+            // node
+            if (atoi(ptr1->type) > atoi(ptr1->next->type)) {
+                // Swap the sequence numbers and subject data
+                char *temp_type = ptr1->type;
+                char *temp_packet = ptr1->packet;
+
+                ptr1->type = ptr1->next->type;
+                ptr1->packet = ptr1->next->packet;
+
+                ptr1->next->type = temp_type;
+                ptr1->next->packet = temp_packet;
+
+                swapped = 1; // Set swapped flag
+            }
+            ptr1 = ptr1->next; // Move to the next node
+        }
+        lptr = ptr1; // Update the last sorted element
+    } while (swapped); // Repeat until no swaps are made
+}
+
+// Function to print the subject list in desired format
+void print_subject_list(list_t *subject_list) {
+    node_t *current = subject_list->head; // Start from the head of the list
+    // Check print
+    while (current != NULL) {
+        printf("%s: %s\n", current->type, current->packet);
+        current = current->next;
+    }
 }

@@ -228,10 +228,10 @@ void retrieve(int sockfd, int message_num, list_t *packet_list) {
         // Check for continuation ("+") response
         if (buffer[0] == '+') {
             // More data is coming, store what we have so far
-            insert_at_foot(packet_list, buffer + 1); // Skip the "+"
+            insert_at_foot(packet_list, buffer + 1, NULL); // Skip the "+"
         } else {
             // Not a continuation, store the entire line
-            insert_at_foot(packet_list, buffer); 
+            insert_at_foot(packet_list, buffer, NULL); 
         }
 
         // Check for tagged response
@@ -802,3 +802,194 @@ void parse_headers_parse(const char *buffer, char *date, char *from, char *to, c
 
 
 
+// A function to handle the List command
+void list(int sockfd, int message_num, list_t *subject_list) {
+    char command[BUFFER_SIZE];
+    // Formation of command to get subject of each email
+    snprintf(command, BUFFER_SIZE,
+             "A06 FETCH 1:* (BODY[HEADER.FIELDS (SUBJECT)])\r\n");
+
+ 
+    //flush_socket_buffer(sockfd); // Clear the buffer before sending new command
+    send_command(sockfd, command);
+
+    // Initial memory alloc for dynamic buffer with check
+    char *dynamic_buffer = malloc(BUFFER_SIZE);
+    if (!dynamic_buffer) {
+        error("Memory allocation failed", 1);
+        exit(3);
+    }
+
+    // Initialisation of varaibles for reading in the server response into
+    // dynamic_buffer as a long string
+    int buffer_len = BUFFER_SIZE;
+    char read_buffer[BUFFER_SIZE]; // Buffer for currently read amount in that
+                                   // while loop iteration
+    int num_bytes = 0;             // Num bytes read in the current while loop
+    int total_bytes = 0;
+
+    // While loop runs until the end of response is reached or socket is closed
+    while ((num_bytes = read(sockfd, read_buffer, BUFFER_SIZE - 1)) > 0) {
+        // If buffer needs to be resized
+        if (total_bytes + num_bytes >= buffer_len - 1) {
+            buffer_len *=
+                2; // Double the buffer size when approaching the limit
+            char *new_buffer = realloc(dynamic_buffer, buffer_len);
+            // Check if realloc fails
+            if (!new_buffer) {
+                error("Memory reallocation failed", 1);
+                free(dynamic_buffer);
+                exit(3);
+            }
+            // Assign resized buffer to dynamic buffer
+            dynamic_buffer = new_buffer;
+        }
+        // Copy data to dynamic buffer and update counters
+        memcpy(dynamic_buffer + total_bytes, read_buffer, num_bytes);
+        total_bytes += num_bytes;
+        dynamic_buffer[total_bytes] = '\0'; // Null-terminate the dynamic buffer
+
+        // Check for tagged response to determine when to stop reading
+        if (strstr(dynamic_buffer, "A06 OK") ||
+            strstr(dynamic_buffer, "A06 NO") ||
+            strstr(dynamic_buffer, "A06 BAD")) {
+            break;
+        }
+    }
+    // Error check if read() failed to read anything
+    if (num_bytes < 0) {
+        error("Unable to read from socket\n", 1);
+        free(dynamic_buffer);
+        exit(3);
+    }
+    // Check
+   
+
+    // Code to read in the server response and store in the subject_list with
+    // correct format
+    char *line = strtok(
+        dynamic_buffer,
+        "\r\n"); // Defines a line as all the text until "\r\n" is encountered
+    char seq_num[20] =
+        "<No sequence>"; // Buffer to store message seuqence number
+    char subject[BUFFER_SIZE] = "<No subject>"; // Buffer to store the subject
+    int subject_found = 0; // Variable to indicate if a subject has been found
+    int first_message = 1; // Variable to handle the first message separately
+
+    // Reads while there is a valid line to be read and stored
+    while (line) {
+        // Check for completion tags and errors
+        if (strstr(line, "A06 OK Fetch completed") || strstr(line, "A06 NO") ||
+            strstr(line, "A06 BAD")) {
+         
+            break; // Exit the loop if the end of the response or an error is
+                   // encountered
+        }
+
+        // Check if the line starts with "* ", indicating the start of a new
+        // message
+        if (strncmp(line, "* ", 2) == 0) {
+            // If a new message is being processed and its not the very first
+            // message processed
+            if (!first_message) {
+                // If no subject was found for the previous message, insert "<No
+                // subject>"
+                if (!subject_found) {
+                    insert_at_foot(subject_list, "<No subject>", seq_num);
+                }
+                // Otherwise add the subject in that is present
+                else {
+                    trim_subject(subject); // Trim the subject if necessary
+                    // Check if the last character is ')', and remove it before
+                    // storing
+                    size_t len = strlen(subject);
+                    if (len > 0 && subject[len - 1] == ')') {
+                        subject[len - 1] = '\0';
+                    }
+                    insert_at_foot(subject_list, subject,
+                                   seq_num); // Insert the subject into the list
+                }
+            }
+            first_message =
+                0; // Clear the first message variable after the first iteration
+
+            // Extract the sequence number from the line
+            sscanf(line, "* %s FETCH", seq_num);
+
+            // Reset subject and flag for the new message
+            strcpy(subject, "<No subject>");
+            subject_found = 0;
+        }
+
+        // If it isn't the start of a new message then just add the rest of the
+        // line to subject
+        else if (subject_found && (line[0] != '*' && line[0] != '\0')) {
+            // Append additional lines to the subject without leading space
+            strncat(subject, line, BUFFER_SIZE - strlen(subject) - 1);
+        }
+
+        // Check if the line contains "Subject: "
+        char *subject_start = strstr(line, "Subject: ");
+        // Store the subject now, after storing the message sequence number
+        if (subject_start) {
+            subject_start += 9; // Skip past "Subject: "
+            strncpy(subject, subject_start,
+                    BUFFER_SIZE - 1);        // Copy the subject content
+            subject[BUFFER_SIZE - 1] = '\0'; // Ensure null-termination
+
+            // Remove trailing newlines and spaces from the subject
+            trim_subject(subject);
+
+            // Mark that the subject was found
+            subject_found = 1;
+        }
+
+        // Move to the next line
+        line = strtok(NULL, "\r\n");
+
+        // Check if the next line indicates the start of a new message or end of
+        // response
+        if ((line && strncmp(line, "* ", 2) == 0) ||
+            (line && strstr(line, "A06 OK Fetch completed"))) {
+            // Trim appropriately before moving onto the next message
+            trim_subject(subject);
+        }
+    }
+
+    // Handle the last message if no subject was found
+    if (!first_message) {
+        if (!subject_found) {
+            insert_at_foot(subject_list, "<No subject>", seq_num);
+        } else {
+            trim_subject(subject); // Trim the subject if necessary
+            // Check if the last character is ')', and remove it before storing
+            size_t len = strlen(subject);
+            if (len > 0 && subject[len - 1] == ')') {
+                subject[len - 1] = '\0';
+            }
+            insert_at_foot(subject_list, subject,
+                           seq_num); // Insert the subject into the list
+        }
+    }
+
+    // Code to now sort the subject_list and then print it
+    sort_subject_list(subject_list);
+
+    print_subject_list(subject_list);
+
+    free(dynamic_buffer);
+}
+
+
+
+
+// Function to trim the last ")" at the end of each email subject 
+void trim_subject(char *subject) {
+    // Remove trailing newline or space characters from the subject
+    char *end = subject + strlen(subject) - 1; // Grabs the end of subject
+    // Looks for all the undesired character sand replaces with null terminating
+    while (end > subject && (*end == '\r' || *end == '\n' || *end == ' ')) {
+        *end = '\0';
+        end--;
+    }
+}
