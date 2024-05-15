@@ -430,27 +430,23 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         char *content_type = NULL;
         char *encoding = NULL;
         parse_headers(headers, &content_type, &encoding);
+
+        //printf("the content-type: %s, encoding: %s\n", content_type, encoding);
+        // Validate headers
+        if (!content_type || !strcasestr(content_type, "text/plain") || !strcasestr(content_type, "charset=UTF-8")) {
+            printf("Error: Invalid Content-Type or charset\n");
+            exit(4);
+        }
+
+        if (!encoding || !(strcasestr(encoding, "quoted-printable") || strcasestr(encoding, "7bit") || strcasestr(encoding, "8bit"))) {
+            printf("Error: Invalid Content-Transfer-Encoding\n");
+            exit(4);
+        }
         
 
         // Process the first text/plain part with charset=UTF-8
         if (content_type && strcasestr(content_type, "text/plain") && strcasestr(content_type, "charset=UTF-8")) {
             char body[10240];  // Adjust size if necessary
-            // if (encoding && strcasestr(encoding, "quoted-printable")) {
-
-            //     char *result = get_body_up_to_boundary(part, boundary); // Cut the part into just the part we want
-
-            //     //printf("INPUT %s\n", result);
-                
-            //     decode_quoted_printable(result, body); // want this code to clean up the format 
-
-            //     //printf("QUOTED PRINTABLE: %s\n", body);
-
-
-            // } else {
-            //     strncpy(body, part, sizeof(body) - 1);
-            //     body[sizeof(body) - 1] = '\0';
-            // }
-            
             
             strncpy(body, part, sizeof(body) - 1);
             body[sizeof(body) - 1] = '\0';
@@ -513,39 +509,6 @@ void parse_headers(const char *headers, char **content_type, char **encoding) {
         }
     }
 }
-
-void unfold_headers(char *headers) {
-    printf("In the unfold headers function\n");
-    int read_pos = 0, write_pos = 0;  // Pointers for reading and writing within the same string
-    int len = strlen(headers);  // Total length of the headers string
-    
-    // Loops through the string
-    while (read_pos + 2 < len) {
-        // Check if the current position is the "start" of a folded line
-        if (headers[read_pos] == '\r' && headers[read_pos + 1] == '\n' &&
-            (headers[read_pos + 2] == ' ' || headers[read_pos + 2] == '\t')) { 
-            // Skip the CRLF (\r\n)
-            read_pos += 2;
-
-            // Skips the whitespace that follows the CRLF which indicates line folding
-            while (read_pos < len && (headers[read_pos] == ' ' || headers[read_pos] == '\t')) {
-                read_pos++;
-            }
-        } else {
-            // If it's not a folded line, copy the character from read position to write position
-            headers[write_pos++] = headers[read_pos++];
-        }
-    }
-
-    // Copies any remaining characters that were not folded to the new structured line
-    while (read_pos < len) {
-        headers[write_pos++] = headers[read_pos++];
-    }
-
-    // Null-terminate the string
-    headers[write_pos] = '\0';
-}
-
 
 
 // Helper function to return the body up to the line before the next boundary delimiter as a string
