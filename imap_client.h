@@ -11,6 +11,8 @@
 
 #define BUFFER_SIZE 2048
 
+#define MAX_HEADER_SIZE 1024
+
 
 // Struct to store the command line arguments
 typedef struct fetch_mail {
@@ -48,7 +50,7 @@ char *find_mime_boundary(const char *content);
 
 void parse_mime_parts(const char *email_content, const char *boundary);
 
-void decode_quoted_printable(const char *input, char *output);
+//void decode_quoted_printable(const char *input, char *output);
 
 void print_body_up_to_boundary(const char *body, const char *boundary);
 
@@ -57,6 +59,19 @@ void parse_headers(const char *headers, char **content_type, char **encoding);
 char *get_body_up_to_boundary(const char *body, const char *boundary);
 
 void unfold_headers_mime(char *headers);
+
+
+/// PARSE
+void parse(int sockfd, int message_num);
+
+void unfold_headers(char *headers);
+
+void parse_headers_parse(const char *buffer, char *date, char *from, char *to, char *subject);
+
+void trim_whitespace(char *str);
+
+
+void unfold_header(char *header);
 
 
 

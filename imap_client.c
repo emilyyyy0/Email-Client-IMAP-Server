@@ -558,44 +558,6 @@ char *get_body_up_to_boundary(const char *body, const char *boundary) {
 
 
 
-
-
-
-
-
-//Function to decode quoted-printable encoding selectively
-void decode_quoted_printable(const char *input, char *output) {
-    printf("in decoded printable function:\n %s\n", input);
-    //printf("in decoded printable function:\n %s\n", input);
-    char *out = output;
-    while (*input) {
-        if (*input == '=') {
-            if (isxdigit(*(input + 1)) && isxdigit(*(input + 2))) {
-                // Decode only if it's not part of a URL
-                if (input > input - 6 && (strncmp(input - 6, "http", 4) == 0 || strncmp(input - 5, "http", 4) == 0)) {
-                    *out++ = *input++;
-                } else {
-                    char hex[3] = { *(input + 1), *(input + 2), '\0' };
-                    *out++ = (char)strtol(hex, NULL, 16);
-                    input += 3;
-                }
-            } else if (*(input + 1) == '\r' && *(input + 2) == '\n') {
-                input += 3; // Skip the soft line break
-            } else if (*(input + 1) == '\n') {
-                input += 2; // Skip the soft line break
-            } else {
-                *out++ = *input++;
-            }
-        } else {
-            *out++ = *input++;
-        }
-    }
-    *out = '\0';
-
-}
-
-
-
 void unfold_headers_mime(char *headers) {
     int read_pos = 0, write_pos = 0;
     int len = strlen(headers);
@@ -645,3 +607,198 @@ void unfold_headers_mime(char *headers) {
     // Null-terminate the string
     headers[write_pos] = '\0';
 }
+
+
+
+
+
+
+// Parse
+void parse(int sockfd, int message_num) {
+
+    //list_t *header_list = make_empty_list(); 
+
+    char command[BUFFER_SIZE];
+
+    // Command construction based on if message num is given or not
+    if (message_num == -1) {
+        snprintf(command, BUFFER_SIZE, "A04 FETCH * BODY.PEEK[HEADER.FIELDS (FROM TO DATE SUBJECT)]\r\n");
+    } else {
+        snprintf(command, BUFFER_SIZE, "A04 FETCH %d BODY.PEEK[HEADER.FIELDS (FROM TO DATE SUBJECT)]\r\n", message_num);
+    }
+
+    send_command(sockfd, command);
+
+    // Initial memory alloc of dynamic buffer
+    char *dynamic_buffer = malloc(BUFFER_SIZE / 2);
+    if (!dynamic_buffer) {
+        error("Memory alloc failed\n", 1);
+        exit(3);
+    }
+    dynamic_buffer[0] = '\0';
+
+    // Initialise variable for reading in server response to dynamic buffer
+    size_t total_bytes = 0;
+    char read_buffer[BUFFER_SIZE];
+    int num_bytes; // Num bytes read per while loop iteration
+
+    // Read and store while read() is working
+    while ((num_bytes = read(sockfd, read_buffer, BUFFER_SIZE - 1)) > 0) {
+        read_buffer[num_bytes] = '\0';
+        // Realloc dynamic buffer to size required after read() call
+        char *new_buffer = realloc(dynamic_buffer, total_bytes + num_bytes + 1);
+        // Error check if realloc fails
+        if (!new_buffer) {
+            error("Memory Alloc failed\n", 1);
+            free(dynamic_buffer);
+            exit(3);
+        }
+        // Reassigning dynamic buffer with the new bigger size and new data
+        dynamic_buffer = new_buffer;
+        memcpy(dynamic_buffer + total_bytes, read_buffer, num_bytes + 1);
+        total_bytes += num_bytes;
+
+        // If the end of headers has been reached stop reading
+        if (strstr(dynamic_buffer, "\r\n\r\n"))
+            break;
+    }
+
+    // Check if read() fails to read anything at all
+    if (num_bytes < 0) {
+        error("Unable to read from socket\n", 1);
+        free(dynamic_buffer);
+        exit(3);
+    }
+
+    // unfold_headers(dynamic_buffer);
+
+    //printf("%s\n", dynamic_buffer);
+
+    // Parse the headers from the dynamic buffer
+    char date[MAX_HEADER_SIZE], from[MAX_HEADER_SIZE], to[MAX_HEADER_SIZE], subject[MAX_HEADER_SIZE];
+    parse_headers_parse(dynamic_buffer, date, from, to, subject);
+
+    // Print the parsed headers
+    printf("From:%s\n", from);
+    printf("To:%s\n", to);
+    printf("Date:%s\n", date);
+    printf("Subject:%s\n", subject);
+
+    // Free the dynamic buffer
+    free(dynamic_buffer);
+
+
+    // the buffer now has everything 
+
+
+    // We need: 
+    // FROM
+    // TO
+    // DATE
+    // SUBJECT
+
+    // headers are case insensitive
+
+}
+
+
+void unfold_header(char *header) {
+    char *src = header, *dst = header;
+    while (*src) {
+        if (*src == '\r' && *(src + 1) == '\n' && (*(src + 2) == ' ' || *(src + 2) == '\t')) {
+            src += 2; // Skip CRLF
+            while (*src == ' ' || *src == '\t') {
+                src++; // Skip the folding whitespace
+            }
+        } else {
+            *dst++ = *src++;
+        }
+    }
+    *dst = '\0'; // Null-terminate the unfolded header
+}
+
+void trim_whitespace(char *str) {
+    char *end;
+
+    // Trim leading space
+    while (isspace((unsigned char)*str)) str++;
+
+    if (*str == 0) return;
+
+    // Trim trailing space
+    end = str + strlen(str) - 1;
+    while (end > str && isspace((unsigned char)*end)) end--;
+
+    // Write new null terminator character
+    end[1] = '\0';
+}
+
+
+void parse_headers_parse(const char *buffer, char *date, char *from, char *to, char *subject) {
+    char line[MAX_HEADER_SIZE];
+    const char *p = buffer;
+
+    date[0] = from[0] = to[0] = subject[0] = '\0';
+    strcpy(subject, " <No subject>");
+
+    char *current_header = NULL;
+    size_t current_length = 0;
+
+    while (*p) {
+        const char *line_start = p;
+        while (*p && *p != '\n') p++;
+        int line_length = p - line_start;
+
+        if (*p == '\n') p++; // Move past the newline
+
+        if (line_length > 0 && line_start[line_length - 1] == '\r') {
+            line_length--; // Remove the CR character
+        }
+
+        strncpy(line, line_start, line_length);
+        line[line_length] = '\0';
+
+        // If the line is a continuation of the previous header (starts with space or tab)
+        if (current_header && (line[0] == ' ' || line[0] == '\t')) {
+            if (current_length + line_length < MAX_HEADER_SIZE) {
+                strcat(current_header, line);
+                current_length += line_length;
+            }
+        } else {
+            // Process the previous header if we have one
+            if (current_header) {
+                unfold_header(current_header);
+                trim_whitespace(current_header);
+                current_header = NULL;
+            }
+
+            // Start a new header
+            if (strncasecmp(line, "Date:", 5) == 0) {
+                current_header = date;
+                strcpy(date, line + 5);
+                current_length = strlen(date);
+            } else if (strncasecmp(line, "From:", 5) == 0) {
+                current_header = from;
+                strcpy(from, line + 5);
+                current_length = strlen(from);
+            } else if (strncasecmp(line, "To:", 3) == 0) {
+                current_header = to;
+                strcpy(to, line + 3);
+                current_length = strlen(to);
+            } else if (strncasecmp(line, "Subject:", 8) == 0) {
+                current_header = subject;
+                strcpy(subject, line + 8);
+                current_length = strlen(subject);
+            }
+        }
+    }
+
+    // Process the last header if we have one
+    if (current_header) {
+        unfold_header(current_header);
+        trim_whitespace(current_header);
+    }
+}
+
+
+
