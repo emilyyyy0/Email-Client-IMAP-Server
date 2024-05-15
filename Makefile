@@ -103,6 +103,18 @@ run:
 	./fetchmail -p pass -u test@comp30023 -f Test list unimelb-comp30023-2024.cloud.edu.au
 	./fetchmail -p pass -u test@comp30023 list unimelb-comp30023-2024.cloud.edu.au 
 
+
+list:
+	./fetchmail -p pass -u test@comp30023 -f Test list unimelb-comp30023-2024.cloud.edu.au
+	./fetchmail -p pass -u test@comp30023 list unimelb-comp30023-2024.cloud.edu.au 
+
+
+listdiff: 
+	./fetchmail -p pass -u test@comp30023 -f Test list unimelb-comp30023-2024.cloud.edu.au | diff - out/list-Test.out
+	./fetchmail -p pass -u test@comp30023 list unimelb-comp30023-2024.cloud.edu.au | diff - out/list-INBOX.out
+
+
+
 format:
 	clang-format -style=file -i *.c
 

@@ -7,6 +7,7 @@
 typedef struct node node_t;
 
 struct node {
+    char *type;
     char *packet;
     node_t *next;
 };
@@ -22,7 +23,7 @@ typedef struct {
 list_t *make_empty_list(void);
 
 // function to append node to end of the list. Append to foot
-void insert_at_foot(list_t *list, char *packet);
+void insert_at_foot(list_t *list, const char *packet, const char *type);
 
 // print packet
 void print_packet(node_t *node);
@@ -47,8 +48,8 @@ void print_list_retrieve(list_t *list);
 
 void printUpToIndex(char *string, int index);
 
+void print_subject_list(list_t *subject_list);
 
-
-
+void sort_subject_list(list_t *list);
 
 #endif

@@ -45,8 +45,12 @@ int main(int argc, char *argv[]) {
     //printf("\nSELECTING FOLDER\n");
     select_folder(sockfd, fetch_mail.folder);
 
+
+    list_t *subject_list = make_empty_list(); // Creates empty list for all the subject lines (Task 2.6 List)
+
     list_t *packet_list = make_empty_list(); // create an empty list 
     retrieve(sockfd, fetch_mail.messageNum, packet_list); // retrieve and store response from server into a linked list 
+
 
 
 
@@ -66,7 +70,15 @@ int main(int argc, char *argv[]) {
         mime(sockfd, packet_list); 
     }
 
+    if (strcmp(fetch_mail.command, "list") == 0) {
+        // To fetch email headers and parse them and print them to stdout
+        list(sockfd, fetch_mail.messageNum, subject_list);
+    }
+
+
+
     free_list(packet_list);
+    free_list(subject_list);
 
 
     return 0;
