@@ -3,15 +3,7 @@ EXE=fetchmail
 $(EXE): main.c imap_client.c utils.c server_response.c
 	cc -Wall -o $(EXE) $^
 
-# Rust
-# $(EXE): src/*.rs vendor
-# 	cargo build --frozen --offline --release
-# 	cp target/release/$(EXE) .
 
-# vendor:
-# 	if [ ! -d "vendor/" ]; then \
-# 		cargo vendor --locked; \
-# 	fi
 
 test: 
 	./fetchmail -f Test -p pass -u test@comp30023 -n 1 retrieve unimelb-comp30023-2024.cloud.edu.au
@@ -54,6 +46,9 @@ mimediff:
 
 
 
+tsl:
+	./fetchmail -f Test -p pass -u test@comp30023 -n 1 -t retrieve unimelb-comp30023-2024.cloud.edu.au
+
 
 
 
@@ -71,8 +66,6 @@ run:
 
 	./fetchmail -p pass -u test@comp30023 -f Test list unimelb-comp30023-2024.cloud.edu.au
 	./fetchmail -p pass -u test@comp30023 list unimelb-comp30023-2024.cloud.edu.au 
-
-	./fetchmail -f Test -p pass -u test@comp30023 -n 1 -t retrieve unimelb-comp30023-2024.cloud.edu.au
 
 format:
 	clang-format -style=file -i *.c
