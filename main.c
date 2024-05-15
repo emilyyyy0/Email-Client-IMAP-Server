@@ -72,12 +72,12 @@ int main(int argc, char *argv[]) {
     if (strcmp(fetch_mail.command, "retrieve") == 0){
         // To retrieve and print email
         //retrieve(sockfd, fetch_mail.messageNum, packet_list);
-        printf("\n \n\n-----------------RETRIEVING MESSAGE-----------\n");
+        //printf("\n \n\n-----------------RETRIEVING MESSAGE-----------\n");
         print_list_retrieve(packet_list); // Or iterate through the list using head and next pointers
     }
 
     if (strcmp(fetch_mail.command, "mime") == 0) {
-        printf("\n------------------------MIME----------------------------\n");
+        //printf("\n------------------------MIME----------------------------\n");
         mime(sockfd, packet_list); 
     }
 

@@ -430,13 +430,22 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         if (content_type && strcasestr(content_type, "text/plain") && strcasestr(content_type, "charset=UTF-8")) {
             char body[10240];  // Adjust size if necessary
             if (encoding && strcasestr(encoding, "quoted-printable")) {
-                decode_quoted_printable(part, body);
+
+                char *result = get_body_up_to_boundary(part, boundary); // Cut the part into just the part we want
+
+                //printf("INPUT %s\n", result);
+                
+                decode_quoted_printable(result, body);
+
+                //printf("QUOTED PRINTABLE: %s\n", body);
+
+
             } else {
                 strncpy(body, part, sizeof(body) - 1);
                 body[sizeof(body) - 1] = '\0';
             }
 
-            //printf("PRINTING THE BODY\n");
+            printf("PRINTING THE BODY\n");
             // Print the body up to the next boundary delimiter
             print_body_up_to_boundary(body, boundary);
             return;  // Stop after printing the first matching part
@@ -467,26 +476,26 @@ void print_body_up_to_boundary(const char *body, const char *boundary) {
 
 
 
-void decode_quoted_printable(const char *input, char *output) {
-    //printf("In quoted printable function\n");
-    char *out = output;
-    while (*input) {
-        if (*input == '=') {
-            if (isxdigit(*(input + 1)) && isxdigit(*(input + 2))) {
-                char hex[3] = { *(input + 1), *(input + 2), '\0' };
-                *out++ = (char)strtol(hex, NULL, 16);
-                input += 3;
-            } else {
-                *out++ = *input++;
-            }
-        } else {
-            *out++ = *input++;
-        }
-    }
-    *out = '\0';
-}
+// void decode_quoted_printable(const char *input, char *output) {
+//     //printf("In quoted printable function\n");
+//     char *out = output;
+//     while (*input) {
+//         if (*input == '=') {
+//             if (isxdigit(*(input + 1)) && isxdigit(*(input + 2))) {
+//                 char hex[3] = { *(input + 1), *(input + 2), '\0' };
+//                 *out++ = (char)strtol(hex, NULL, 16);
+//                 input += 3;
+//             } else {
+//                 *out++ = *input++;
+//             }
+//         } else {
+//             *out++ = *input++;
+//         }
+//     }
+//     *out = '\0';
+// }
 
-// Function to decode quoted-printable encoding
+//Function to decode quoted-printable encoding
 // void decode_quoted_printable(const char *input, char *output) {
 //     char *out = output;
 //     while (*input) {
@@ -508,6 +517,8 @@ void decode_quoted_printable(const char *input, char *output) {
 //     }
 //     *out = '\0';
 // }
+
+
 
 // Function to parse headers and extract values for Content-Type and Content-Transfer-Encoding
 void parse_headers(const char *headers, char **content_type, char **encoding) {
@@ -560,4 +571,65 @@ void unfold_headers(char *headers) {
 
     // Null-terminate the string
     headers[write_pos] = '\0';
+}
+
+
+// Helper function to return the body up to the next boundary delimiter as a string
+char *get_body_up_to_boundary(const char *body, const char *boundary) {
+    char delimiter[256];
+    snprintf(delimiter, sizeof(delimiter), "--%s", boundary);
+
+    // Find the boundary delimiter in the body
+    char *body_end = strstr(body, delimiter);
+
+    // Calculate the length of the body to return
+    size_t body_length;
+    if (body_end) {
+        body_length = body_end - body;
+    } else {
+        body_length = strlen(body);
+    }
+
+    // Allocate memory for the resulting string
+    char *result = (char *)malloc(body_length + 1);
+    if (!result) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the body content up to the calculated length
+    strncpy(result, body, body_length);
+    result[body_length] = '\0'; // Null-terminate the string
+
+    return result;
+}
+
+
+// Function to decode quoted-printable encoding selectively
+void decode_quoted_printable(const char *input, char *output) {
+    printf("in decoded printable function:\n %s\n", input);
+    char *out = output;
+    while (*input) {
+        if (*input == '=') {
+            if (isxdigit(*(input + 1)) && isxdigit(*(input + 2))) {
+                // Decode only if it's not part of a URL
+                if (input > input - 6 && (strncmp(input - 6, "http", 4) == 0 || strncmp(input - 5, "http", 4) == 0)) {
+                    *out++ = *input++;
+                } else {
+                    char hex[3] = { *(input + 1), *(input + 2), '\0' };
+                    *out++ = (char)strtol(hex, NULL, 16);
+                    input += 3;
+                }
+            } else if (*(input + 1) == '\r' && *(input + 2) == '\n') {
+                input += 3; // Skip the soft line break
+            } else if (*(input + 1) == '\n') {
+                input += 2; // Skip the soft line break
+            } else {
+                *out++ = *input++;
+            }
+        } else {
+            *out++ = *input++;
+        }
+    }
+    *out = '\0';
 }
