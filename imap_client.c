@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "string.h"
 
 #include "imap_client.h"
 
 #include "server_response.h"
+
+#include "utils.h"
 
 // Implement functions to connect to the imap server using sockets
 // Functions to log in, select folder, fetch messages, and other IMAP commands.
@@ -75,7 +78,7 @@ void send_command(int sockfd, const char *cmd) {
     int bytes_left = len;  // Bytes left to send
     int bytes_sent;
 
-    printf("command being sent to server: %s", cmd);
+    //printf("command being sent to server: %s", cmd);
 
     // write system call transmits the command string to the server
     // sockfd: Specifies the file descriptor of the socket, which identifies the connection to the server.
@@ -183,7 +186,7 @@ void select_folder(int sockfd, const char *folder_name) {
 
 
 
-void retrieve(int sockfd, int message_num) {
+void retrieve(int sockfd, int message_num, list_t *packet_list) {
     // The command is retrieve, we need to fetch the email:
     // tag FETCH messageNum BODY.PEEK[]
 
@@ -205,7 +208,7 @@ void retrieve(int sockfd, int message_num) {
 
 
     // Read the response and store packets in a linked list 
-    list_t *packet_list = make_empty_list(); // create an empty list 
+    //list_t *packet_list = make_empty_list(); // create an empty list 
     char buffer[BUFFER_SIZE];
 
     while (1) {
@@ -249,21 +252,239 @@ void retrieve(int sockfd, int message_num) {
             exit(3);  // Exit with status 3
         }
 
-        // Prints out every packet
-        // will contain the raw content of the email message fetched, including headers, body and MIME structure 
-        // printf("\n\n\n\nEvery packet:\n");
-        // printf("%s", buffer);
-        
-
     }
 
-    printf("\n \n\n-----------------PRINTING THE LIST -----------\n");
-    print_list_retrieve(packet_list); // Or iterate through the list using head and next pointers
-
-    // Free the linked list
-    free_list(packet_list);
     
 
+}
+
+
+void mime(int sockfd, list_t *packet_list) {
+    //printf("mime function\n");
+
+    
+    // Concatenate all packets into a single buffer 
+    char *buffer = concatenate_packets(packet_list); 
+    //printf("%s", buffer); 
+
+    // Now find the MIME boundary
+    char *boundary = find_mime_boundary(buffer);
+    //printf("\n%s\n", boundary);
+
+    // Now we have to parse and decode the MIME parts
+
+    // Content-Type: text/plain with charset=UTF-8
+    // Content-Transfer-Encoding: quoted-printable | 7 bit | 8 bit
+    
+    parse_mime_parts(buffer, boundary); 
+
+
+    free(buffer); 
+    return;
+
+}
+
+
+// Helper function to concatenate packets into a single buffer 
+char *concatenate_packets(list_t *packet_list) {
+    // calcualte the total size needed
+    size_t total_size = 0; 
+    
+    node_t *current = packet_list ->head; 
+
+    while (current != NULL) {
+        total_size += strlen(current->packet); 
+        current = current->next; 
+
+    }
+    // Allocate memory for the concatenated buffer
+    char *buffer = (char *)malloc(total_size + 1); 
+    if (buffer == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1); 
+    }
+
+    // Copy packet data into the buffer
+    buffer[0] = '\0';
+    current = packet_list->head; 
+    while(current != NULL) {
+        strcat(buffer, current->packet); 
+        current = current->next; 
+    }
+
+    return buffer; 
+}
+
+
+// Locate and extract the boundary parameter from MIME headers 
+char *find_mime_boundary(const char *content) {
+
+    
+    // Search for the MIME-Version header (case-insensitive)
+    char *mime_start = strcasestr(content, "mime-version: 1.0");
+    if (!mime_start) {
+        return NULL;
+    }
+
+    //printf("mime_start: %s", mime_start);
+
+    // Search for the Content-Type header with boundary parameter (case-insensitive)
+    char *boundary_start = strcasestr(mime_start, "boundary=");
+    if (!boundary_start) {
+        return NULL;
+    }
+
+    // Move pointer to the start of the boundary value
+    boundary_start += strlen("boundary=");
+
+    // Handle potential double quotes around the boundary value
+    char *boundary_end;
+    if (*boundary_start == '\"') {
+        boundary_start++;
+        boundary_end = strchr(boundary_start, '\"');
+        if (!boundary_end) {
+            return NULL;
+        }
+    } else {
+        // In case boundary value is not quoted
+        boundary_end = strpbrk(boundary_start, ";\n");
+        if (!boundary_end) {
+            boundary_end = boundary_start + strlen(boundary_start);
+        }
+    }
+
+    // Calculate the length of the boundary value
+    size_t boundary_length = boundary_end - boundary_start;
+
+    // Allocate memory for the actual boundary value
+    char *boundary = (char *)malloc(boundary_length + 1);
+    if (!boundary) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return NULL;
+    }
+
+    // Copy the boundary value into the allocated memory
+    strncpy(boundary, boundary_start, boundary_length);
+    boundary[boundary_length] = '\0';
+
+    return boundary;
+
+}
+
+
+// Function to parse and process MIME parts
+void parse_mime_parts(const char *email_content, const char *boundary) {
+    // initial setup and finding the first boundary
+    char delimiter[256];
+    snprintf(delimiter, sizeof(delimiter), "--%s", boundary);
+
+    // Find the first boundary delimiter
+    char *part = strstr(email_content, delimiter);
+    if (!part) {
+        printf("Error: Boundary delimiter not found\n");
+        return;
+    }
+    // part = contains everything from the boundary including the boundary itself
+    //printf("RETRIEVE: \n");
+    //printf("%s", part);
+
+    // Process each MIME part
+    while (part) {
+        // Skips past the boundary
+        part += strlen(delimiter);
+        if (*part == '-' && *(part + 1) == '-') {
+            break;  // Reached the end of the MIME parts
+        }
+
+        //printf("First PART: %s\n", part);
+        unfold_headers_mime(part); 
+
+        //printf("after unfolding: %s\n", part);
+        
+
+        // // Move to the next CRLF after the boundary delimiter
+        // part = strstr(part, "\r\n");
+        // if (!part) break;
+        // part += 2;  // Move past the CRLF
+        part = strstr(part, "\n");
+        if (!part) part = strstr(part, "\r\n");
+        if (!part) break;
+        part += (part[0] == '\r') ? 2 : 1;  // Move past the line ending
+
+        //printf("Second PART: %s\n", part);
+
+        // Find the headers end (empty line)
+        char *headers_end = strstr(part, "\r\n\r\n");
+        if (!headers_end) break;
+
+        // Extract headers
+        char headers[1024];
+        strncpy(headers, part, headers_end - part);
+        headers[headers_end - part] = '\0';
+        //printf("Headers: %s\n", headers);  // Debug print
+
+        // Move to the body part
+        part = headers_end + 4;
+
+        // Check Content-Type and Content-Transfer-Encoding headers
+        char *content_type = NULL;
+        char *encoding = NULL;
+        parse_headers(headers, &content_type, &encoding);
+        
+
+        // Process the first text/plain part with charset=UTF-8
+        if (content_type && strcasestr(content_type, "text/plain") && strcasestr(content_type, "charset=UTF-8")) {
+            char body[10240];  // Adjust size if necessary
+            // if (encoding && strcasestr(encoding, "quoted-printable")) {
+
+            //     char *result = get_body_up_to_boundary(part, boundary); // Cut the part into just the part we want
+
+            //     //printf("INPUT %s\n", result);
+                
+            //     decode_quoted_printable(result, body); // want this code to clean up the format 
+
+            //     //printf("QUOTED PRINTABLE: %s\n", body);
+
+
+            // } else {
+            //     strncpy(body, part, sizeof(body) - 1);
+            //     body[sizeof(body) - 1] = '\0';
+            // }
+            
+            
+            strncpy(body, part, sizeof(body) - 1);
+            body[sizeof(body) - 1] = '\0';
+
+            char *result = get_body_up_to_boundary(part, boundary); // Cut the part into just the part we want
+            printf("%s", result);
+           
+
+            //printf("PRINTING THE BODY\n");
+            // Print the body up to the next boundary delimiter
+            //print_body_up_to_boundary(body, boundary);
+            return;  // Stop after printing the first matching part
+        }
+
+        // Find the next boundary delimiter
+        part = strstr(part, delimiter);
+    }
+
+    return;
+}
+
+// Helper function to print the body up to the next boundary delimiter
+void print_body_up_to_boundary(const char *body, const char *boundary) {
+    char delimiter[256];
+    snprintf(delimiter, sizeof(delimiter), "--%s", boundary);
+
+    char *body_end = strstr(body, delimiter);
+    if (body_end) {
+        // Print up to the boundary delimiter
+        fwrite(body, 1, body_end - body, stdout);
+    } else {
+        // Print the entire body if no boundary delimiter is found
+        printf("%s", body);
+    }
 }
 
 
@@ -271,4 +492,193 @@ void retrieve(int sockfd, int message_num) {
 
 
 
-// const char *hostname, const char *port
+// Function to parse headers and extract values for Content-Type and Content-Transfer-Encoding
+void parse_headers(const char *headers, char **content_type, char **encoding) {
+    const char *current = headers;
+    while (*current) {
+        if (strncasecmp(current, "Content-Type:", 13) == 0) {
+            *content_type = (char *)current + 13;
+            while (**content_type == ' ' || **content_type == '\t') (*content_type)++;
+        } else if (strncasecmp(current, "Content-Transfer-Encoding:", 26) == 0) {
+            *encoding = (char *)current + 26;
+            while (**encoding == ' ' || **encoding == '\t') (*encoding)++;
+        }
+        // Move to the next line
+        current = strstr(current, "\r\n");
+        if (!current) break;
+        current += 2;
+        // Handle folded headers (lines starting with space or tab)
+        if (*current == ' ' || *current == '\t') {
+            continue;
+        }
+    }
+}
+
+void unfold_headers(char *headers) {
+    printf("In the unfold headers function\n");
+    int read_pos = 0, write_pos = 0;  // Pointers for reading and writing within the same string
+    int len = strlen(headers);  // Total length of the headers string
+    
+    // Loops through the string
+    while (read_pos + 2 < len) {
+        // Check if the current position is the "start" of a folded line
+        if (headers[read_pos] == '\r' && headers[read_pos + 1] == '\n' &&
+            (headers[read_pos + 2] == ' ' || headers[read_pos + 2] == '\t')) { 
+            // Skip the CRLF (\r\n)
+            read_pos += 2;
+
+            // Skips the whitespace that follows the CRLF which indicates line folding
+            while (read_pos < len && (headers[read_pos] == ' ' || headers[read_pos] == '\t')) {
+                read_pos++;
+            }
+        } else {
+            // If it's not a folded line, copy the character from read position to write position
+            headers[write_pos++] = headers[read_pos++];
+        }
+    }
+
+    // Copies any remaining characters that were not folded to the new structured line
+    while (read_pos < len) {
+        headers[write_pos++] = headers[read_pos++];
+    }
+
+    // Null-terminate the string
+    headers[write_pos] = '\0';
+}
+
+
+
+// Helper function to return the body up to the line before the next boundary delimiter as a string
+char *get_body_up_to_boundary(const char *body, const char *boundary) {
+    char delimiter[256];
+    snprintf(delimiter, sizeof(delimiter), "--%s", boundary);
+
+    // Find the boundary delimiter in the body
+    char *body_end = strstr(body, delimiter);
+
+    // Calculate the length of the body to return
+    size_t body_length;
+    if (body_end) {
+        // Backtrack to find the newline before the boundary
+        char *prev_newline = body_end;
+        while (prev_newline > body && *(prev_newline - 1) != '\n') {
+            prev_newline--;
+        }
+
+        // If there's a \r before \n, include it in body_length
+        if (prev_newline > body && *(prev_newline - 2) == '\r') {
+            prev_newline -= 2;
+        } else if (prev_newline > body && *(prev_newline - 1) == '\n') {
+            prev_newline--;
+        }
+
+        // Set body_length to be up to the line before the boundary
+        body_length = prev_newline - body;
+    } else {
+        body_length = strlen(body);
+    }
+
+    // Allocate memory for the resulting string
+    char *result = (char *)malloc(body_length + 1);
+    if (!result) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the body content up to the calculated length
+    strncpy(result, body, body_length);
+    result[body_length] = '\0'; // Null-terminate the string
+
+    return result;
+}
+
+
+
+
+
+
+
+
+
+//Function to decode quoted-printable encoding selectively
+void decode_quoted_printable(const char *input, char *output) {
+    printf("in decoded printable function:\n %s\n", input);
+    //printf("in decoded printable function:\n %s\n", input);
+    char *out = output;
+    while (*input) {
+        if (*input == '=') {
+            if (isxdigit(*(input + 1)) && isxdigit(*(input + 2))) {
+                // Decode only if it's not part of a URL
+                if (input > input - 6 && (strncmp(input - 6, "http", 4) == 0 || strncmp(input - 5, "http", 4) == 0)) {
+                    *out++ = *input++;
+                } else {
+                    char hex[3] = { *(input + 1), *(input + 2), '\0' };
+                    *out++ = (char)strtol(hex, NULL, 16);
+                    input += 3;
+                }
+            } else if (*(input + 1) == '\r' && *(input + 2) == '\n') {
+                input += 3; // Skip the soft line break
+            } else if (*(input + 1) == '\n') {
+                input += 2; // Skip the soft line break
+            } else {
+                *out++ = *input++;
+            }
+        } else {
+            *out++ = *input++;
+        }
+    }
+    *out = '\0';
+
+}
+
+
+
+void unfold_headers_mime(char *headers) {
+    int read_pos = 0, write_pos = 0;
+    int len = strlen(headers);
+
+    int content_type_pos = -1;
+    int content_transfer_encoding_pos = -1;
+
+    // Find positions of "Content-Type" and "Content-Transfer-Encoding" headers
+    char *content_type_ptr = strstr(headers, "Content-Type:");
+    if (content_type_ptr) {
+        content_type_pos = content_type_ptr - headers;
+    }
+
+    char *content_transfer_encoding_ptr = strstr(headers, "Content-Transfer-Encoding:");
+    if (content_transfer_encoding_ptr) {
+        content_transfer_encoding_pos = content_transfer_encoding_ptr - headers;
+    }
+
+    // Determine the position up to which we need to unfold
+    int unfold_pos = len;
+    if (content_type_pos != -1 && content_transfer_encoding_pos != -1) {
+        unfold_pos = (content_type_pos > content_transfer_encoding_pos) ? content_type_pos : content_transfer_encoding_pos;
+    } else if (content_type_pos != -1) {
+        unfold_pos = content_type_pos;
+    } else if (content_transfer_encoding_pos != -1) {
+        unfold_pos = content_transfer_encoding_pos;
+    }
+
+    // Loops through the string and unfold headers up to the determined position
+    while (read_pos < unfold_pos && read_pos + 2 < len) {
+        if (headers[read_pos] == '\r' && headers[read_pos + 1] == '\n' &&
+            (headers[read_pos + 2] == ' ' || headers[read_pos + 2] == '\t')) { 
+            read_pos += 2;
+            while (read_pos < len && (headers[read_pos] == ' ' || headers[read_pos] == '\t')) {
+                read_pos++;
+            }
+        } else {
+            headers[write_pos++] = headers[read_pos++];
+        }
+    }
+
+    // Copy any remaining characters that were not folded up to the determined position
+    while (read_pos < len) {
+        headers[write_pos++] = headers[read_pos++];
+    }
+
+    // Null-terminate the string
+    headers[write_pos] = '\0';
+}

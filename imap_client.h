@@ -7,6 +7,8 @@
 #include <string.h>
 #include <netdb.h>
 
+#include "server_response.h"
+
 #define BUFFER_SIZE 2048
 
 
@@ -36,7 +38,28 @@ void login(int sockfd, const char* username, const char* password);
 
 void select_folder(int sockfd, const char *folder_name);
 
-void retrieve(int sockfd, int message_num);
+void retrieve(int sockfd, int message_num, list_t *packet_list);
+
+void mime(int sockfd, list_t *packet_list);
+
+char *concatenate_packets(list_t *packet_list);
+
+char *find_mime_boundary(const char *content);
+
+void parse_mime_parts(const char *email_content, const char *boundary);
+
+void decode_quoted_printable(const char *input, char *output);
+
+void print_body_up_to_boundary(const char *body, const char *boundary);
+
+void parse_headers(const char *headers, char **content_type, char **encoding);
+
+void unfold_headers(char *headers);
+
+char *get_body_up_to_boundary(const char *body, const char *boundary);
+
+void unfold_headers_mime(char *headers);
+
 
 
 #endif
