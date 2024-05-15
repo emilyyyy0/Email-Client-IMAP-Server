@@ -57,6 +57,10 @@ int main(int argc, char *argv[]) {
         print_list_retrieve(packet_list);
     }
 
+    if (strcmp(fetch_mail.command, "parse") == 0) {
+        parse(sockfd, fetch_mail.messageNum);
+    }
+
     if (strcmp(fetch_mail.command, "mime") == 0) {
         //printf("\n------------------------MIME----------------------------\n");
         mime(sockfd, packet_list); 
