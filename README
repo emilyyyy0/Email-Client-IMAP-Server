@@ -1,5 +1,21 @@
 COMP30023 2024 - Project 2
 
+Simple email client that downloads and parses emails from a standards-compliant IMAP server,
+
+To run: 
+- make clean && make
+- make test (to run tests)
+
+
+TLS: using OpenSSL
+- Install the openssl library when you want to run this. 
+- sudo apt-get install libssl-dev
+
+To run execute this command in the terminal:
+gcc -Wall -o fetchmail main.c imap_client.c utils.c server_response.c tls.c -lssl -lcrypto
+
+
+
 Test cases will be added over time.
 See FAQ on Ed (Post #512) for more details.
 
