@@ -3,8 +3,11 @@
 #include <assert.h>
 #include <math.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "server_response.h"
+
+#include "imap_client.h"
 
 /***
  * This is a file to store the server response into a linked list since the server may respond in packets if too large. 
@@ -30,43 +33,6 @@ int is_list_empty(list_t *list) {
 }
 
 
-// Insert a node at the foot of the linked list 
-// Inserts a new node with value "process" to the end of "list" 
-// void insert_at_foot(list_t *list, char *packet) {
-//     // Ensure that list and packet are not NULL
-//     assert(list != NULL && packet != NULL);
-
-//     // Creates a new node with packet inside of it
-//     node_t *new = (node_t*)malloc(sizeof(*new));
-//     if (new == NULL) {
-//         perror("Memory allocation failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     // Allocate memory for the packet data
-//     new->packet = (char*)malloc(strlen(packet) + 1);
-//     if (new->packet == NULL) {
-//         perror("Memory allocation failed");
-//         free(new); // Free the allocated node memory
-//         exit(EXIT_FAILURE);
-//     }
-
-//     // Stores response in packet->response
-//     // Copy the data from packet into the newly allocated memory with bounds checking
-//     strncpy(new->packet, packet, strlen(packet) + 1);
-
-//     new->next = NULL; // this points to NULL as it is the end of the list
- 
-
-//     if (list->head == NULL) {
-//         // First insert into the list 
-//         // new becomes the only node in the list
-//         list->head = list->foot = new;
-//     } else {
-//         list->foot->next = new; // old tail connected to "new"
-//         list->foot = new; // new foot of the list 
-//     }
-// }
 
 // A function to print the packet
 void print_packet(node_t *node) {
@@ -87,6 +53,7 @@ void print_list(list_t *list) {
 void free_node(node_t *node) {
     if (node != NULL) {
         free(node->packet);
+        free(node->type);
         free(node);
     }
 }
@@ -123,59 +90,6 @@ int len_list(list_t *list) {
 
 }
 
-
-// Function to traverse and print all the packets = server response
-void print_list_retrieve(list_t *list) {
-    node_t *current = list->head; // Start from the head of the list
-
-    int firstLine = 0; // flag for the first line which has FETCH
-
-    // iterate through the packets linked list 
-    while (current != NULL) { 
-        int i = 0;
-
-        char *str = current->packet; 
-
-        // while loop that finds the first '\n' 
-        while(!firstLine) {
-            if (str[i] == '\n') {
-                // firstLine = 1; 
-                // printf("%s", str + i + 1);
-                break;
-            }
-
-            i++; 
-        }
-
-
-        // For the last packet 
-        if (strstr(current->packet, "A03 OK")) {
-            int length = strlen(str); // get length of string
-            int newLineCount = 0; 
-
-            for (int i = length - 1; i >= 0; i--) {
-                if (str[i] == '\n') {
-                    newLineCount++;
-                    if (newLineCount == 2) {
-                        // printf("%s", str + i + 1);
-                        printUpToIndex(str, i - 3);
-                        break;
-                    }
-                }
-            }
-            break;
-        }
-
-        if (firstLine) { // means we have printed skipped the firstline already 
-            printf("%s", str);
-        } else if (!firstLine) {
-            printf("%s", str + i + 1);
-            firstLine = 1;
-        }
-
-        current = current->next; 
-    }
-}
 
 
 void printUpToIndex(char *string, int index) {
@@ -286,3 +200,137 @@ void print_subject_list(list_t *subject_list) {
         current = current->next;
     }
 }
+
+
+
+
+// Function to print the string with NUL byte handling
+void print_string_with_nul_handling(const char *str) {
+    while (*str) {
+        if (*str == '\0') {
+            putchar(NUL_PLACEHOLDER);
+        } else {
+            putchar(*str);
+        }
+        str++;
+    }
+    putchar('\n');
+}
+
+// Function to extract and print the desired portion of the email
+void print_list_retrieve(list_t *list) {
+    char *res = concatenate_packets(list);
+
+    // Find the start of the email content after the initial FETCH line
+    char *email_start = strstr(res, "\n");
+    if (email_start) {
+        email_start++;  // Move past the newline character
+
+        // Find the position of the "A03 OK" line
+        char *end_marker = strstr(email_start, "A03 OK");
+        if (end_marker) {
+            // Create a copy of the email content up to the end marker
+            size_t content_length = end_marker - email_start;
+            char *email_content = (char *)malloc(content_length + 1);
+            if (email_content == NULL) {
+                perror("Failed to allocate memory");
+                free(res);
+                exit(EXIT_FAILURE);
+            }
+            strncpy(email_content, email_start, content_length);
+            email_content[content_length] = '\0';
+
+            // Remove trailing ")" and one trailing newline
+            char *trim_pos = email_content + content_length - 1;
+            int removed_trailing_parenthesis = 0;
+            while (trim_pos >= email_content) {
+                if (*trim_pos == ')') {
+                    *trim_pos = '\0';
+                    removed_trailing_parenthesis = 1;
+                    trim_pos--;
+                    break;
+                } else if (*trim_pos == '\n' || *trim_pos == '\r') {
+                    *trim_pos = '\0';
+                    trim_pos--;
+                } else {
+                    break;
+                }
+            }
+
+            // Remove one more trailing newline if the flag is set
+            if (removed_trailing_parenthesis) {
+                if (*trim_pos == '\n' || *trim_pos == '\r') {
+                    *trim_pos = '\0';
+                }
+            }
+
+            // Print the trimmed email content with NUL byte handling
+            print_string_with_nul_handling(email_content);
+            free(email_content);
+        } else {
+            // Print the entire remaining content if "A03 OK" is not found
+            print_string_with_nul_handling(email_start);
+        }
+    }
+
+    free(res);  // Free the allocated memory for the concatenated string
+}
+
+
+
+// Function to traverse and print all the packets = server response
+// void print_list_retrieve(list_t *list) {
+//     node_t *current = list->head; // Start from the head of the list
+
+//     // char *res = concatenate_packets(list); 
+//     // printf("%s res\n", res);
+
+//     int firstLine = 0; // flag for the first line which has FETCH
+
+//     // iterate through the packets linked list 
+//     while (current != NULL) { 
+//         int i = 0;
+
+//         char *str = current->packet; 
+
+//         // while loop that finds the first '\n' 
+//         while(!firstLine) {
+//             if (str[i] == '\n') {
+//                 // firstLine = 1; 
+//                 // printf("%s", str + i + 1);
+//                 break;
+//             }
+
+//             i++; 
+//         }
+
+
+//         // For the last packet 
+//         if (strstr(current->packet, "A03 OK")) {
+//             int length = strlen(str); // get length of string
+//             int newLineCount = 0; 
+
+//             for (int i = length - 1; i >= 0; i--) {
+//                 if (str[i] == '\n') {
+//                     newLineCount++;
+//                     if (newLineCount == 2) {
+//                         // printf("%s", str + i + 1);
+//                         printUpToIndex(str, i - 3);
+//                         break;
+//                     }
+//                 }
+//             }
+//             break;
+//         }
+
+//         if (firstLine) { // means we have printed skipped the firstline already 
+//             printf("%s", str);
+//         } else if (!firstLine) {
+//             printf("%s", str + i + 1);
+//             firstLine = 1;
+//         }
+
+
+//         current = current->next; 
+//     }
+// }

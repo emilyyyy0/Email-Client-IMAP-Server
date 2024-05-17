@@ -7,6 +7,10 @@
 #include <string.h>
 #include <netdb.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <signal.h>
+
 #include "server_response.h"
 
 #define BUFFER_SIZE 2048
@@ -20,7 +24,7 @@ typedef struct fetch_mail {
         char *password; 
         char *folder;
         int messageNum;
-        int isTSL;
+        int isTLS;
         char *command;
         char *server_name;
 } fetch_mail_t;
@@ -50,35 +54,27 @@ char *find_mime_boundary(const char *content);
 
 void parse_mime_parts(const char *email_content, const char *boundary);
 
-//void decode_quoted_printable(const char *input, char *output);
-
-void print_body_up_to_boundary(const char *body, const char *boundary);
-
 void parse_headers(const char *headers, char **content_type, char **encoding);
 
 char *get_body_up_to_boundary(const char *body, const char *boundary);
 
 void unfold_headers_mime(char *headers);
 
-
-/// PARSE
-void parse(int sockfd, int message_num);
-
 void unfold_headers(char *headers);
 
-void parse_headers_parse(const char *buffer, char *date, char *from, char *to, char *subject);
+void print_headers(list_t *header_list);
 
-void trim_whitespace(char *str);
+char *trim_spaces(char *str);
 
-
-void unfold_header(char *header);
-
-
-// LIST
-
-void list(int sockfd, int message_num, list_t *subject_list);
+void parse(int sockfd, int message_num, list_t *header_list);
 
 void trim_subject(char *subject);
+
+char* read_subjects(int sockfd);
+
+void populate_subject_list(char *dynamic_buffer, list_t *subject_list);
+
+void list(int sockfd, int message_num, list_t *subject_list);
 
 
 

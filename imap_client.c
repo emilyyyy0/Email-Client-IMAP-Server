@@ -14,11 +14,13 @@
 // Functions to log in, select folder, fetch messages, and other IMAP commands.
 // Handle IMAP protocol specifics like tag generation and response parsing.
 
+// Error function with msg
 void error(const char *msg, int num) {
     perror(msg);
     exit(num);
 }
 
+// Function to create connection to a socket with specific port
 int create_connection(const char *hostname, const char *port) {
     struct addrinfo hints, *res, *res0; 
     // hints: used to provide criteria for selecting the desired socket address structures.
@@ -34,7 +36,7 @@ int create_connection(const char *hostname, const char *port) {
     // with res0 pointing to the head of the linked list 
     // the hints structure guides the type of addresses returned
     if (getaddrinfo(hostname, port, &hints, &res0) != 0) {
-        fprintf(stderr, "error: getaddreinfo\n");
+        fprintf(stderr, "error: getaddressinfo\n");
         exit(1); 
     }
 
@@ -58,14 +60,8 @@ int create_connection(const char *hostname, const char *port) {
 
     }
 
-    // Now we do some error handling
-    if (res == NULL) { 
-        fprintf(stderr, "Could not connect\n"); 
-        exit(1); 
-        // no address succeeded
-    }
-
     freeaddrinfo(res0); 
+
     return sockfd; 
 
 }
@@ -78,16 +74,10 @@ void send_command(int sockfd, const char *cmd) {
     int bytes_left = len;  // Bytes left to send
     int bytes_sent;
 
-    //printf("command being sent to server: %s", cmd);
-
     // write system call transmits the command string to the server
     // sockfd: Specifies the file descriptor of the socket, which identifies the connection to the server.
     // cmd: the command string to be sent
     // len: tell write() the exact number of bytes to send from the buffer
-    // if (write(sockfd, cmd, len) != len) {
-    //     // this ensures  that all bytes of the command string were successfully written to the socket
-    //     error("socket is not writable", 1); // partial write or a write failure
-    // }
 
      // Continuously attempt to write until all bytes are sent
     while (bytes_left > 0) {
@@ -113,7 +103,12 @@ void read_response(int sockfd, const char* tag) {
     int numBytes = read(sockfd, buffer, BUFFER_SIZE - 1); // Attempts to read data from the socket with file descriptor sockfd into the buffer. It reads a maximum of BUFFER_SIZE - 1 bytes to leave room for the null terminator (\0) that will be added later.
     if (numBytes < 0) {
         // if negative, an error occured during reading.
-        error("ERROR reading from socket", 1);
+        error("ERROR reading from socket", 2);
+    } else if (numBytes == 0) {
+        // Immediate disconnect
+        fprintf(stderr, "Server disconnected immediately\n");
+        close(sockfd);
+        exit(2); // or exit(3), depending on the specific requirements
     }
 
     buffer[numBytes] = '\0'; // null terminator to make it a string
@@ -130,13 +125,11 @@ void read_response(int sockfd, const char* tag) {
         exit(3);
     }
 
-    // Output the server's response for debugging or information purposes
-    //printf("Server Response: %s\n\n", buffer);
 
 }
 
 
-
+// Function to log into the server
 void login(int sockfd, const char* username, const char* password) {
     char command[BUFFER_SIZE]; // Buffer to hold the complete command string
 
@@ -150,7 +143,7 @@ void login(int sockfd, const char* username, const char* password) {
     read_response(sockfd, "A01"); // pass tag used in the login command
 }
 
-
+// Function to select a folder we want to read from 
 void select_folder(int sockfd, const char *folder_name) {
     char command[BUFFER_SIZE];
 
@@ -158,9 +151,6 @@ void select_folder(int sockfd, const char *folder_name) {
     if (folder_name == NULL || strlen(folder_name) == 0) {
         folder_name = "INBOX";
     }
-
-    // Construct SELECT command
-    // snprintf(command, BUFFER_SIZE, "A02 SELECT %s\r\n", folder_name);
 
     // Escape double quotes and backslashes in folder_name
     char escaped_name[2*BUFFER_SIZE]; // Allow for potential doubling in size
@@ -174,7 +164,7 @@ void select_folder(int sockfd, const char *folder_name) {
     escaped_name[j] = '\0'; // Null-terminate the escaped string
 
     // Construct SELECT command with quoted and escaped folder name
-    snprintf(command, BUFFER_SIZE, "A02 SELECT \"%s\"\r\n", escaped_name);
+    snprintf(command, 3*BUFFER_SIZE, "A02 SELECT \"%s\"\r\n", escaped_name);
 
     // send the command to server
     send_command(sockfd, command); 
@@ -184,8 +174,7 @@ void select_folder(int sockfd, const char *folder_name) {
 }
 
 
-
-
+// If command is retrieve, we fetch the email
 void retrieve(int sockfd, int message_num, list_t *packet_list) {
     // The command is retrieve, we need to fetch the email:
     // tag FETCH messageNum BODY.PEEK[]
@@ -208,7 +197,6 @@ void retrieve(int sockfd, int message_num, list_t *packet_list) {
 
 
     // Read the response and store packets in a linked list 
-    //list_t *packet_list = make_empty_list(); // create an empty list 
     char buffer[BUFFER_SIZE];
 
     while (1) {
@@ -218,11 +206,6 @@ void retrieve(int sockfd, int message_num, list_t *packet_list) {
             error("ERROR reading from socket", 1);
         }
         buffer[numBytes] = '\0';
-
-        // Check for lines to exclude
-        // if (strstr(buffer, "A03 OK") || strstr(buffer, "* FETCH")) {
-        //     continue; // Skip this line and read the next one
-        // }
 
 
         // Check for continuation ("+") response
@@ -254,22 +237,17 @@ void retrieve(int sockfd, int message_num, list_t *packet_list) {
 
     }
 
-    
-
 }
 
 
+// function that decode MIME messages
 void mime(int sockfd, list_t *packet_list) {
-    //printf("mime function\n");
-
     
     // Concatenate all packets into a single buffer 
     char *buffer = concatenate_packets(packet_list); 
-    //printf("%s", buffer); 
 
     // Now find the MIME boundary
     char *boundary = find_mime_boundary(buffer);
-    //printf("\n%s\n", boundary);
 
     // Now we have to parse and decode the MIME parts
 
@@ -278,7 +256,7 @@ void mime(int sockfd, list_t *packet_list) {
     
     parse_mime_parts(buffer, boundary); 
 
-
+    free(boundary); 
     free(buffer); 
     return;
 
@@ -325,8 +303,6 @@ char *find_mime_boundary(const char *content) {
     if (!mime_start) {
         return NULL;
     }
-
-    //printf("mime_start: %s", mime_start);
 
     // Search for the Content-Type header with boundary parameter (case-insensitive)
     char *boundary_start = strcasestr(mime_start, "boundary=");
@@ -385,8 +361,6 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         return;
     }
     // part = contains everything from the boundary including the boundary itself
-    //printf("RETRIEVE: \n");
-    //printf("%s", part);
 
     // Process each MIME part
     while (part) {
@@ -396,22 +370,14 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
             break;  // Reached the end of the MIME parts
         }
 
-        //printf("First PART: %s\n", part);
         unfold_headers_mime(part); 
-
-        //printf("after unfolding: %s\n", part);
         
-
         // // Move to the next CRLF after the boundary delimiter
-        // part = strstr(part, "\r\n");
-        // if (!part) break;
-        // part += 2;  // Move past the CRLF
         part = strstr(part, "\n");
         if (!part) part = strstr(part, "\r\n");
         if (!part) break;
         part += (part[0] == '\r') ? 2 : 1;  // Move past the line ending
 
-        //printf("Second PART: %s\n", part);
 
         // Find the headers end (empty line)
         char *headers_end = strstr(part, "\r\n\r\n");
@@ -431,7 +397,6 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
         char *encoding = NULL;
         parse_headers(headers, &content_type, &encoding);
 
-        //printf("the content-type: %s, encoding: %s\n", content_type, encoding);
         // Validate headers
         if (!content_type || !strcasestr(content_type, "text/plain") || !strcasestr(content_type, "charset=UTF-8")) {
             printf("Error: Invalid Content-Type or charset\n");
@@ -452,12 +417,9 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
             body[sizeof(body) - 1] = '\0';
 
             char *result = get_body_up_to_boundary(part, boundary); // Cut the part into just the part we want
-            printf("%s", result);
+            printf("%s", result); // Print the body up to the next boundary delimiter
            
-
-            //printf("PRINTING THE BODY\n");
-            // Print the body up to the next boundary delimiter
-            //print_body_up_to_boundary(body, boundary);
+            free(result); 
             return;  // Stop after printing the first matching part
         }
 
@@ -468,27 +430,8 @@ void parse_mime_parts(const char *email_content, const char *boundary) {
     return;
 }
 
-// Helper function to print the body up to the next boundary delimiter
-void print_body_up_to_boundary(const char *body, const char *boundary) {
-    char delimiter[256];
-    snprintf(delimiter, sizeof(delimiter), "--%s", boundary);
 
-    char *body_end = strstr(body, delimiter);
-    if (body_end) {
-        // Print up to the boundary delimiter
-        fwrite(body, 1, body_end - body, stdout);
-    } else {
-        // Print the entire body if no boundary delimiter is found
-        printf("%s", body);
-    }
-}
-
-
-
-
-
-
-// Function to parse headers and extract values for Content-Type and Content-Transfer-Encoding
+// Function to parse headers and extract values for Content-Type and Content-Transfer-Encoding for MIME
 void parse_headers(const char *headers, char **content_type, char **encoding) {
     const char *current = headers;
     while (*current) {
@@ -556,8 +499,6 @@ char *get_body_up_to_boundary(const char *body, const char *boundary) {
 }
 
 
-
-
 void unfold_headers_mime(char *headers) {
     int read_pos = 0, write_pos = 0;
     int len = strlen(headers);
@@ -608,100 +549,7 @@ void unfold_headers_mime(char *headers) {
     headers[write_pos] = '\0';
 }
 
-
-
-
-
-
-// Parse
-void parse(int sockfd, int message_num) {
-
-    //list_t *header_list = make_empty_list(); 
-
-    char command[BUFFER_SIZE];
-
-    // Command construction based on if message num is given or not
-    if (message_num == -1) {
-        snprintf(command, BUFFER_SIZE, "A04 FETCH * BODY.PEEK[HEADER.FIELDS (FROM TO DATE SUBJECT)]\r\n");
-    } else {
-        snprintf(command, BUFFER_SIZE, "A04 FETCH %d BODY.PEEK[HEADER.FIELDS (FROM TO DATE SUBJECT)]\r\n", message_num);
-    }
-
-    send_command(sockfd, command);
-
-    // Initial memory alloc of dynamic buffer
-    char *dynamic_buffer = malloc(BUFFER_SIZE / 2);
-    if (!dynamic_buffer) {
-        error("Memory alloc failed\n", 1);
-        exit(3);
-    }
-    dynamic_buffer[0] = '\0';
-
-    // Initialise variable for reading in server response to dynamic buffer
-    size_t total_bytes = 0;
-    char read_buffer[BUFFER_SIZE];
-    int num_bytes; // Num bytes read per while loop iteration
-
-    // Read and store while read() is working
-    while ((num_bytes = read(sockfd, read_buffer, BUFFER_SIZE - 1)) > 0) {
-        read_buffer[num_bytes] = '\0';
-        // Realloc dynamic buffer to size required after read() call
-        char *new_buffer = realloc(dynamic_buffer, total_bytes + num_bytes + 1);
-        // Error check if realloc fails
-        if (!new_buffer) {
-            error("Memory Alloc failed\n", 1);
-            free(dynamic_buffer);
-            exit(3);
-        }
-        // Reassigning dynamic buffer with the new bigger size and new data
-        dynamic_buffer = new_buffer;
-        memcpy(dynamic_buffer + total_bytes, read_buffer, num_bytes + 1);
-        total_bytes += num_bytes;
-
-        // If the end of headers has been reached stop reading
-        if (strstr(dynamic_buffer, "\r\n\r\n"))
-            break;
-    }
-
-    // Check if read() fails to read anything at all
-    if (num_bytes < 0) {
-        error("Unable to read from socket\n", 1);
-        free(dynamic_buffer);
-        exit(3);
-    }
-
-    // unfold_headers(dynamic_buffer);
-
-    //printf("%s\n", dynamic_buffer);
-
-    // Parse the headers from the dynamic buffer
-    char date[MAX_HEADER_SIZE], from[MAX_HEADER_SIZE], to[MAX_HEADER_SIZE], subject[MAX_HEADER_SIZE];
-    parse_headers_parse(dynamic_buffer, date, from, to, subject);
-
-    // Print the parsed headers
-    printf("From:%s\n", from);
-    printf("To:%s\n", to);
-    printf("Date:%s\n", date);
-    printf("Subject:%s\n", subject);
-
-    // Free the dynamic buffer
-    free(dynamic_buffer);
-
-
-    // the buffer now has everything 
-
-
-    // We need: 
-    // FROM
-    // TO
-    // DATE
-    // SUBJECT
-
-    // headers are case insensitive
-
-}
-
-
+// This is for unfolding headers in the PARSE 2.4
 void unfold_header(char *header) {
     char *src = header, *dst = header;
     while (*src) {
@@ -717,6 +565,7 @@ void unfold_header(char *header) {
     *dst = '\0'; // Null-terminate the unfolded header
 }
 
+// This trims whitespace to print output appropriately for PARSE 2.4
 void trim_whitespace(char *str) {
     char *end;
 
@@ -733,7 +582,7 @@ void trim_whitespace(char *str) {
     end[1] = '\0';
 }
 
-
+// Parse header for subject for MIME 2.4
 void parse_headers_parse(const char *buffer, char *date, char *from, char *to, char *subject) {
     char line[MAX_HEADER_SIZE];
     const char *p = buffer;
@@ -802,29 +651,208 @@ void parse_headers_parse(const char *buffer, char *date, char *from, char *to, c
 
 
 
+void unfold_headers(char *headers) {
+    int read_pos = 0;
+    int write_pos = 0; // Pointers for reading and writing within the same string
+    int len = strlen(headers); // Total length of the headers string
+ 
+
+    // Loops through the string
+    while (read_pos + 2 < len) {
+        // Check if the current position is the "start" of a folded line
+        if (headers[read_pos] == '\r' && headers[read_pos + 1] == '\n' &&
+            (headers[read_pos + 2] == ' ' || headers[read_pos + 2] == '\t')) {
+            // Skip the CRLF (\r\n)
+            read_pos += 2;
+
+            // Insert a single space to replace the CRLF and any following whitespace
+            headers[write_pos++] = ' ';
+
+            // Skip the whitespace that follows the CRLF which indicates line folding
+            while (read_pos < len && (headers[read_pos] == ' ' || headers[read_pos] == '\t')) {
+                read_pos++;
+            }
+        } else {
+            // If it's not a folded line, copy the character from read position to write position
+            headers[write_pos++] = headers[read_pos++];
+        }
+    }
+
+    // Copies any remaining characters that were not folded to the new structured line
+    while (read_pos < len) {
+        headers[write_pos++] = headers[read_pos++];
+    }
+
+    // Null-terminate the string
+    headers[write_pos] = '\0';
+}
+
+// A function to trim the spaces
+char *trim_spaces(char *str) {
+    char *end;
+
+    // Trim leading space
+    while (*str == ' ') str++;
+
+    if (*str == 0)  // All spaces?
+        return str;
+
+    // Trim trailing space
+    end = str + strlen(str) - 1;
+    while (end > str && *end == ' ') end--;
+
+    // Write new null terminator
+    *(end + 1) = 0;
+
+    return str;
+}
+
+// Function to print the headers while handling missing headers and formatting
+// correctly
+void print_headers(list_t *header_list) {
+    const char *desired_order[] = {"From", "To", "Date", "Subject",
+                                   NULL}; // Define desired order of headers
+
+    for (int i = 0; desired_order[i] != NULL; i++) {
+        node_t *current =
+            header_list
+                ->head; // Start from the head of the list for each search
+        int found = 0;  // Variable to indicate if the header was found
+
+        while (current != NULL) {
+            if (current->type != NULL &&
+                strcasecmp(current->type, desired_order[i]) == 0) {
+                printf("%s: %s\n", desired_order[i],
+                       current->packet); // Print the header
+                found = 1;               // Set to indicate the header was found
+                break; // Break once the header is found and printed
+            }
+            current = current->next;
+        }
+
+        if (!found) { // If the header was not found, print the expected header
+                      // type followed by a colon
+            if (strcasecmp(desired_order[i], "Subject") == 0) {
+                printf("%s: <No subject>\n", desired_order[i]);
+            } else {
+                printf("%s:\n", desired_order[i]);
+            }
+        }
+    }
+}
+
+// A function parse the headers and print them correctly
+void parse(int sockfd, int message_num, list_t *header_list) {
+    char command[BUFFER_SIZE];
+
+    // Command construction based on if message num is given or not
+    // Formulation of the fetch command
+    if (message_num == -1) {
+        snprintf(command, BUFFER_SIZE, "A04 FETCH * BODY.PEEK[HEADER.FIELDS (FROM TO DATE SUBJECT)]\r\n");
+    } 
+    else {
+        snprintf(command, BUFFER_SIZE, "A04 FETCH %d BODY.PEEK[HEADER.FIELDS (FROM TO DATE SUBJECT)]\r\n", message_num);
+    }
+
+    send_command(sockfd, command);
+
+    // Initial memory alloc of dynamic buffer
+    // Memory alloc 
+    char *dynamic_buffer = malloc(BUFFER_SIZE / 2);
+    if (!dynamic_buffer) {
+        error("Memory alloc failed\n", 1);
+        exit(3);
+    }
+    dynamic_buffer[0] = '\0';
+
+    // Initialise variable for reading in server response to dynamic buffer
+    size_t total_bytes = 0;
+    char read_buffer[BUFFER_SIZE];
+    int num_bytes; // Num bytes read per while loop iteration
+    
+
+    // Read and store while read() is working
+    while ((num_bytes = read(sockfd, read_buffer, BUFFER_SIZE - 1)) > 0) {
+        read_buffer[num_bytes] = '\0';
+        // Realloc dynamic buffer to size required after read() call
+        char *new_buffer = realloc(dynamic_buffer, total_bytes + num_bytes + 1);
+        // Error check if realloc fails
+        if (!new_buffer) {
+            error("Memory Alloc failed\n", 1);
+            free(dynamic_buffer);
+            exit(3);
+        }
+        // Reassigning dynamic buffer with the new bigger size and new data
+        dynamic_buffer = new_buffer;
+        memcpy(dynamic_buffer + total_bytes, read_buffer, num_bytes + 1);
+        total_bytes += num_bytes;
+
+        // If the end of headers has been reached stop reading
+        if (strstr(dynamic_buffer, "\r\n\r\n")) {
+            break;
+        }
+    }
+
+    // Check if read() fails to read anything at all
+    if (num_bytes < 0) {
+        error("Unable to read from socket\n", 1);
+        free(dynamic_buffer);
+        exit(3);
+    }
+
+    // Unfolds any folded headers according to RFC5322
+    unfold_headers(dynamic_buffer);
+
+    // Stores the headers into the header_list with one node per header
+    char *line = strtok(dynamic_buffer, "\r\n");
+    while (line) {
+        // Looks for the colon which separates the header type and value
+        char *colon = strchr(line, ':');
+        if (colon) {
+            *colon = '\0';
+            char *header = line; // Store the header, From Date Subject To
+            char *value = colon + 1; // Stores the actual value of the header (section of the string after the colon)
+           
+            // Skip leading spaces
+            while (*value == ' ') {
+                value++;
+            }
+
+            // Trim trailing spaces
+            value = trim_spaces(value);
+
+            insert_at_foot(header_list, value, header);
+        }
+        line = strtok(NULL, "\r\n");
+    }
+
+    print_headers(header_list);
+
+    free(dynamic_buffer);
+}
+
+
+
+
 // A function to handle the List command
-void list(int sockfd, int message_num, list_t *subject_list) {
+// A function to read in the server response of email subjects and store in a dynamic buffer
+char* read_subjects(int sockfd) {
     char command[BUFFER_SIZE];
     // Formation of command to get subject of each email
-    snprintf(command, BUFFER_SIZE,
-             "A06 FETCH 1:* (BODY[HEADER.FIELDS (SUBJECT)])\r\n");
+    snprintf(command, BUFFER_SIZE, "A06 FETCH 1:* (BODY[HEADER.FIELDS (SUBJECT)])\r\n");
 
- 
-    //flush_socket_buffer(sockfd); // Clear the buffer before sending new command
     send_command(sockfd, command);
 
     // Initial memory alloc for dynamic buffer with check
     char *dynamic_buffer = malloc(BUFFER_SIZE);
     if (!dynamic_buffer) {
         error("Memory allocation failed", 1);
-        exit(3);
+        return NULL;
     }
 
-    // Initialisation of varaibles for reading in the server response into
-    // dynamic_buffer as a long string
+    // Initialization of variables for reading in the server response into dynamic_buffer as a long string
     int buffer_len = BUFFER_SIZE;
-    char read_buffer[BUFFER_SIZE]; // Buffer for currently read amount in that
-                                   // while loop iteration
+    char read_buffer[BUFFER_SIZE]; // Buffer for currently read amount in that while loop iteration
     int num_bytes = 0;             // Num bytes read in the current while loop
     int total_bytes = 0;
 
@@ -832,14 +860,13 @@ void list(int sockfd, int message_num, list_t *subject_list) {
     while ((num_bytes = read(sockfd, read_buffer, BUFFER_SIZE - 1)) > 0) {
         // If buffer needs to be resized
         if (total_bytes + num_bytes >= buffer_len - 1) {
-            buffer_len *=
-                2; // Double the buffer size when approaching the limit
+            buffer_len *= 2; // Double the buffer size when approaching the limit
             char *new_buffer = realloc(dynamic_buffer, buffer_len);
             // Check if realloc fails
             if (!new_buffer) {
-                error("Memory reallocation failed", 1);
+                perror("Memory reallocation failed");
                 free(dynamic_buffer);
-                exit(3);
+                return NULL;
             }
             // Assign resized buffer to dynamic buffer
             dynamic_buffer = new_buffer;
@@ -856,22 +883,22 @@ void list(int sockfd, int message_num, list_t *subject_list) {
             break;
         }
     }
+
     // Error check if read() failed to read anything
     if (num_bytes < 0) {
-        error("Unable to read from socket\n", 1);
+        perror("Unable to read from socket");
         free(dynamic_buffer);
-        exit(3);
+        return NULL;
     }
-    // Check
-   
 
-    // Code to read in the server response and store in the subject_list with
-    // correct format
-    char *line = strtok(
-        dynamic_buffer,
-        "\r\n"); // Defines a line as all the text until "\r\n" is encountered
-    char seq_num[20] =
-        "<No sequence>"; // Buffer to store message seuqence number
+    return dynamic_buffer;
+}
+
+
+// A function to store the raw email subjects in a structured subject list
+void populate_subject_list(char *dynamic_buffer, list_t *subject_list) {
+    char *line = strtok(dynamic_buffer, "\r\n"); // Defines a line as all the text until "\r\n" is encountered
+    char seq_num[20] = "<No sequence>"; // Buffer to store message sequence number
     char subject[BUFFER_SIZE] = "<No subject>"; // Buffer to store the subject
     int subject_found = 0; // Variable to indicate if a subject has been found
     int first_message = 1; // Variable to handle the first message separately
@@ -881,37 +908,29 @@ void list(int sockfd, int message_num, list_t *subject_list) {
         // Check for completion tags and errors
         if (strstr(line, "A06 OK Fetch completed") || strstr(line, "A06 NO") ||
             strstr(line, "A06 BAD")) {
-         
-            break; // Exit the loop if the end of the response or an error is
-                   // encountered
+            break; // Exit the loop if the end of the response or an error is encountered
         }
 
-        // Check if the line starts with "* ", indicating the start of a new
-        // message
+        // Check if the line starts with "* ", indicating the start of a new message
         if (strncmp(line, "* ", 2) == 0) {
-            // If a new message is being processed and its not the very first
-            // message processed
+            // If a new message is being processed and it's not the very first message processed
             if (!first_message) {
-                // If no subject was found for the previous message, insert "<No
-                // subject>"
+                // If no subject was found for the previous message, insert "<No subject>"
                 if (!subject_found) {
                     insert_at_foot(subject_list, "<No subject>", seq_num);
                 }
                 // Otherwise add the subject in that is present
                 else {
                     trim_subject(subject); // Trim the subject if necessary
-                    // Check if the last character is ')', and remove it before
-                    // storing
+                    // Check if the last character is ')', and remove it before storing
                     size_t len = strlen(subject);
                     if (len > 0 && subject[len - 1] == ')') {
                         subject[len - 1] = '\0';
                     }
-                    insert_at_foot(subject_list, subject,
-                                   seq_num); // Insert the subject into the list
+                    insert_at_foot(subject_list, subject, seq_num); // Insert the subject into the list
                 }
             }
-            first_message =
-                0; // Clear the first message variable after the first iteration
+            first_message = 0; // Clear the first message variable after the first iteration
 
             // Extract the sequence number from the line
             sscanf(line, "* %s FETCH", seq_num);
@@ -921,8 +940,7 @@ void list(int sockfd, int message_num, list_t *subject_list) {
             subject_found = 0;
         }
 
-        // If it isn't the start of a new message then just add the rest of the
-        // line to subject
+        // If it isn't the start of a new message then just add the rest of the line to subject
         else if (subject_found && (line[0] != '*' && line[0] != '\0')) {
             // Append additional lines to the subject without leading space
             strncat(subject, line, BUFFER_SIZE - strlen(subject) - 1);
@@ -933,8 +951,7 @@ void list(int sockfd, int message_num, list_t *subject_list) {
         // Store the subject now, after storing the message sequence number
         if (subject_start) {
             subject_start += 9; // Skip past "Subject: "
-            strncpy(subject, subject_start,
-                    BUFFER_SIZE - 1);        // Copy the subject content
+            strncpy(subject, subject_start, BUFFER_SIZE - 1); // Copy the subject content
             subject[BUFFER_SIZE - 1] = '\0'; // Ensure null-termination
 
             // Remove trailing newlines and spaces from the subject
@@ -947,10 +964,8 @@ void list(int sockfd, int message_num, list_t *subject_list) {
         // Move to the next line
         line = strtok(NULL, "\r\n");
 
-        // Check if the next line indicates the start of a new message or end of
-        // response
-        if ((line && strncmp(line, "* ", 2) == 0) ||
-            (line && strstr(line, "A06 OK Fetch completed"))) {
+        // Check if the next line indicates the start of a new message or end of response
+        if ((line && strncmp(line, "* ", 2) == 0) || (line && strstr(line, "A06 OK Fetch completed"))) {
             // Trim appropriately before moving onto the next message
             trim_subject(subject);
         }
@@ -967,20 +982,27 @@ void list(int sockfd, int message_num, list_t *subject_list) {
             if (len > 0 && subject[len - 1] == ')') {
                 subject[len - 1] = '\0';
             }
-            insert_at_foot(subject_list, subject,
-                           seq_num); // Insert the subject into the list
+            insert_at_foot(subject_list, subject, seq_num); // Insert the subject into the list
         }
     }
+}
+
+// A function to read in the subjects of all the emails and print them in the required format
+void list(int sockfd, int message_num, list_t *subject_list) {
+    // Call read_subjects() to get the server response and store in a buffer as one long string
+    char *dynamic_buffer = read_subjects(sockfd);
+
+    // Call populate_subject_list() to store the long string into separate nodes for each new subject
+    // where type = Subject: and then packet = the actual subject body
+    populate_subject_list(dynamic_buffer, subject_list);
 
     // Code to now sort the subject_list and then print it
     sort_subject_list(subject_list);
-
     print_subject_list(subject_list);
 
+    // Free the dynamically allocated buffer
     free(dynamic_buffer);
 }
-
-
 
 
 // Function to trim the last ")" at the end of each email subject 
